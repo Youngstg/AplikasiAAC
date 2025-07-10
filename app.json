@@ -24,6 +24,13 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "scheme": "aplikasiaac",
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": false
     }
   }
 }
