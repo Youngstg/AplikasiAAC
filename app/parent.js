@@ -58,7 +58,10 @@ export default function ParentDashboard() {
             <Text style={styles.cardDescription}>
               Manage your child's AAC communication settings and monitor their progress
             </Text>
-            <TouchableOpacity style={styles.cardButton}>
+            <TouchableOpacity 
+              style={styles.cardButton}
+              onPress={() => router.push('/manage-children')}
+            >
               <Text style={styles.cardButtonText}>Manage Children</Text>
             </TouchableOpacity>
           </View>
@@ -68,8 +71,11 @@ export default function ParentDashboard() {
             <Text style={styles.cardDescription}>
               Customize communication boards and symbols for your child
             </Text>
-            <TouchableOpacity style={styles.cardButton}>
-              <Text style={styles.cardButtonText}>Settings</Text>
+            <TouchableOpacity 
+              style={styles.cardButton}
+              onPress={() => router.push('/create-button')}
+            >
+              <Text style={styles.cardButtonText}>Create Button</Text>
             </TouchableOpacity>
           </View>
 
