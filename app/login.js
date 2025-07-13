@@ -17,6 +17,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
+//TEST GITHUBDASDADADSADADADADA
+
 const { width } = Dimensions.get('window');
 
 export default function Login() {
