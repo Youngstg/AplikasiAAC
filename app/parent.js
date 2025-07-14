@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,81 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
-  ScrollView
+  ScrollView,
+  Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import { db } from '../firebaseConfig';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 export default function ParentDashboard() {
   const { logout, currentUser } = useAuth();
   const router = useRouter();
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [screenData, setScreenData] = useState(Dimensions.get('window'));
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+
+    const notificationsQuery = query(
+      collection(db, 'notifications'),
+      where('toId', '==', currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+      const notificationsList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Sort by timestamp (newest first)
+      notificationsList.sort((a, b) => {
+        if (a.timestamp && b.timestamp) {
+          return b.timestamp.seconds - a.timestamp.seconds;
+        }
+        return 0;
+      });
+
+      setNotifications(notificationsList);
+      setUnreadCount(notificationsList.filter(n => !n.read).length);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  useEffect(() => {
+    // Unlock orientation for parent page
+    const unlockOrientation = async () => {
+      await ScreenOrientation.unlockAsync();
+    };
+    
+    unlockOrientation();
+    
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenData(window);
+    });
+
+    return () => subscription?.remove();
+  }, []);
+
+  const markAsRead = async (notificationId) => {
+    try {
+      await updateDoc(doc(db, 'notifications', notificationId), {
+        read: true
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    return date.toLocaleString();
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -37,68 +104,114 @@ export default function ParentDashboard() {
     );
   };
 
+  // Dynamic layout based on orientation
+  const isLandscape = screenData.width > screenData.height;
+  const getMainContentStyle = () => {
+    return isLandscape ? styles.mainContentLandscape : styles.mainContentPortrait;
+  };
+
+  const getLeftColumnStyle = () => {
+    return isLandscape ? styles.leftColumnLandscape : styles.leftColumnPortrait;
+  };
+
+  const getRightColumnStyle = () => {
+    return isLandscape ? styles.rightColumnLandscape : styles.rightColumnPortrait;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Parent Dashboard</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
+
+        <View style={getMainContentStyle()}>
+          {/* Left Column - Status & Messages */}
+          <View style={getLeftColumnStyle()}>
+            {/* Child Status Card */}
+            <View style={styles.childStatusCard}>
+              <View style={styles.childAvatar}>
+                <Text style={styles.avatarText}>👶</Text>
+              </View>
+              <View style={styles.childInfo}>
+                <Text style={styles.childName}>Child Tablet</Text>
+                <View style={styles.statusRow}>
+                  <Text style={styles.statusText}>Active</Text>
+                  <View style={styles.batteryContainer}>
+                    <Text style={styles.batteryIcon}>🔋</Text>
+                    <Text style={styles.batteryText}>50%</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Recent Messages */}
+            {notifications.length > 0 && (
+              <View style={styles.messageCard}>
+                <View style={styles.messageHeader}>
+                  <Text style={styles.messageTitle}>Recent Messages</Text>
+                </View>
+                {unreadCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.badgeText}>{unreadCount} new</Text>
+                  </View>
+                )}
+                <View style={styles.messagesList}>
+                  {notifications.slice(0, isLandscape ? 2 : 3).map((notification) => (
+                    <TouchableOpacity
+                      key={notification.id}
+                      style={[
+                        styles.messageItem,
+                        !notification.read && styles.unreadMessage
+                      ]}
+                      onPress={() => markAsRead(notification.id)}
+                    >
+                      <Text style={styles.messageText}>{notification.message}</Text>
+                      <Text style={styles.messageTime}>
+                        {formatTimestamp(notification.timestamp)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Right Column - Menu Grid */}
+          <View style={getRightColumnStyle()}>
+            <View style={styles.menuGrid}>
+              <TouchableOpacity 
+                style={[styles.menuCard, styles.addWordCard]}
+                onPress={() => router.push('/create-button')}
+              >
+                <Text style={styles.menuTitle}>Add{'\n'}Word</Text>
+                <Text style={styles.menuDescription}>Word{'\n'}Image{'\n'}Sound</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.menuCard, styles.pinWordCard]}
+                onPress={() => router.push('/manage-children')}
+              >
+                <Text style={styles.menuTitle}>Connect{'\n'}Child</Text>
+                <Text style={styles.menuDescription}>Manage{'\n'}Children</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.menuCard, styles.editWordCard]}
+                onPress={() => router.push('/edit-word')}
+              >
+                <Text style={styles.menuTitle}>Edit{'\n'}Word</Text>
+                <Text style={styles.menuDescription}>Modify{'\n'}Existing{'\n'}Words</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.menuCard, styles.logoutCard]}
+                onPress={handleLogout}
+              >
+                <Text style={styles.menuTitle}>Logout</Text>
+                <Text style={styles.menuDescription}>Sign Out{'\n'}Account</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.welcomeContainer}>
-          <Text style={styles.welcomeText}>Welcome, Parent!</Text>
-          <Text style={styles.emailText}>{currentUser?.email}</Text>
-        </View>
-
-        <View style={styles.cardContainer}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Child Management</Text>
-            <Text style={styles.cardDescription}>
-              Manage your child's AAC communication settings and monitor their progress
-            </Text>
-            <TouchableOpacity 
-              style={styles.cardButton}
-              onPress={() => router.push('/manage-children')}
-            >
-              <Text style={styles.cardButtonText}>Manage Children</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Communication Settings</Text>
-            <Text style={styles.cardDescription}>
-              Customize communication boards and symbols for your child
-            </Text>
-            <TouchableOpacity 
-              style={styles.cardButton}
-              onPress={() => router.push('/create-button')}
-            >
-              <Text style={styles.cardButtonText}>Create Button</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Progress Reports</Text>
-            <Text style={styles.cardDescription}>
-              View detailed reports on your child's communication progress
-            </Text>
-            <TouchableOpacity style={styles.cardButton}>
-              <Text style={styles.cardButtonText}>View Reports</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Emergency Contacts</Text>
-            <Text style={styles.cardDescription}>
-              Set up emergency contacts and quick communication options
-            </Text>
-            <TouchableOpacity style={styles.cardButton}>
-              <Text style={styles.cardButtonText}>Manage Contacts</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -113,83 +226,222 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 20,
   },
-  header: {
+  
+  // Responsive layout
+  mainContentLandscape: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 15,
     marginBottom: 30,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
+  mainContentPortrait: {
+    flexDirection: 'column',
+    gap: 20,
+    marginBottom: 30,
   },
-  logoutButton: {
-    backgroundColor: '#ff4444',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
+  leftColumnLandscape: {
+    flex: 0.3,
+    gap: 15,
   },
-  logoutButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
+  leftColumnPortrait: {
+    gap: 20,
   },
-  welcomeContainer: {
+  rightColumnLandscape: {
+    flex: 0.7,
+  },
+  rightColumnPortrait: {
+    width: '100%',
+  },
+  
+  // Child Status Card
+  childStatusCard: {
     backgroundColor: 'white',
-    borderRadius: 10,
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
-    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  welcomeText: {
-    fontSize: 24,
+  childAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#e8f4fd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  avatarText: {
+    fontSize: 30,
+  },
+  childInfo: {
+    flex: 1,
+  },
+  childName: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 5,
   },
-  emailText: {
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusText: {
     fontSize: 16,
     color: '#666',
   },
-  cardContainer: {
-    gap: 15,
+  batteryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  card: {
+  batteryIcon: {
+    fontSize: 16,
+    marginRight: 5,
+  },
+  batteryText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+
+  // Message Card
+  messageCard: {
     backgroundColor: 'white',
-    borderRadius: 10,
+    borderRadius: 20,
     padding: 20,
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  cardTitle: {
+  messageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  messageAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e8f4fd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  messageTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+  },
+  notificationBadge: {
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+    alignSelf: 'flex-start',
     marginBottom: 10,
   },
-  cardDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-    lineHeight: 20,
+  badgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
-  cardButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
+  messagesList: {
+    gap: 10,
+  },
+  messageItem: {
     padding: 12,
-    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e9ecef',
   },
-  cardButtonText: {
+  unreadMessage: {
+    backgroundColor: '#e3f2fd',
+    borderLeftColor: '#2196f3',
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+    marginBottom: 5,
+  },
+  messageTime: {
+    fontSize: 12,
+    color: '#666',
+  },
+
+  // Menu Grid
+  menuGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  menuCard: {
+    width: '48.5%',
+    aspectRatio: 1,
+    borderRadius: 15,
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  addWordCard: {
+    backgroundColor: '#a8d0f0',
+  },
+  pinWordCard: {
+    backgroundColor: '#f0a8c0',
+  },
+  editWordCard: {
+    backgroundColor: '#a8f0c0',
+  },
+  logoutCard: {
+    backgroundColor: '#f0a8a8',
+  },
+  menuTitle: {
+    fontSize: 35,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 6,
+    textAlign: 'left',
+    alignSelf: 'flex-start',
+  },
+  menuDescription: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'left',
+    lineHeight: 16,
+    alignSelf: 'flex-start',
+  },
+
+  // Logout
+  logoutContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  logoutButton: {
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+    minWidth: 200,
+  },
+  logoutButtonText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 16,
+    textAlign: 'center',
   },
 });

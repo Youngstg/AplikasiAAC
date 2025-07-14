@@ -11,7 +11,7 @@ import {
   Image,
   Platform
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 import { collection, addDoc, doc, getDoc, updateDoc, arrayUnion, getDocs, query, where } from 'firebase/firestore';
@@ -21,6 +21,7 @@ import { Audio } from 'expo-av';
 export default function CreateButton() {
   const { currentUser } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [buttonText, setButtonText] = useState('');
   const [image, setImage] = useState(null);
   const [audioUri, setAudioUri] = useState(null);
@@ -29,10 +30,48 @@ export default function CreateButton() {
   const [selectedChild, setSelectedChild] = useState(null);
   const [connectedChildren, setConnectedChildren] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [editMode, setEditMode] = useState(params.editMode === 'true');
+  const [editingButtonId, setEditingButtonId] = useState(params.buttonId);
 
   useEffect(() => {
     loadConnectedChildren();
   }, []);
+
+  useEffect(() => {
+    if (editMode && params.buttonId && connectedChildren.length > 0) {
+      loadExistingButtonData();
+    }
+  }, [connectedChildren, editMode, params.buttonId]);
+
+  const loadExistingButtonData = async () => {
+    try {
+      if (params.text) {
+        setButtonText(params.text);
+      }
+      
+      // Find the child by email
+      const childConnection = connectedChildren.find(child => 
+        child.childEmail === params.childEmail
+      );
+      if (childConnection) {
+        setSelectedChild(childConnection);
+      }
+      
+      // Load the actual button data from Firestore to get image and audio
+      const buttonDoc = await getDoc(doc(db, 'parent-buttons', params.buttonId));
+      if (buttonDoc.exists()) {
+        const buttonData = buttonDoc.data();
+        if (buttonData.imageBase64) {
+          setImage({ uri: buttonData.imageBase64 });
+        }
+        if (buttonData.audioBase64) {
+          setAudioUri(buttonData.audioBase64);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading existing button data:', error);
+    }
+  };
 
   const loadConnectedChildren = async () => {
     try {
@@ -166,18 +205,23 @@ export default function CreateButton() {
         childId: selectedChild.childId,
         childEmail: selectedChild.childEmail,
         childName: selectedChild.childName,
-        createdAt: new Date().toISOString(),
-        id: Date.now().toString()
+        createdAt: new Date().toISOString()
       };
 
       // Save to parent-buttons collection
-      await addDoc(collection(db, 'parent-buttons'), buttonData);
-
-      // Button is saved and will be automatically loaded by child based on their email
-
-      Alert.alert('Success', 'Button created successfully!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      if (editMode && editingButtonId) {
+        // Update existing button
+        await updateDoc(doc(db, 'parent-buttons', editingButtonId), buttonData);
+        Alert.alert('Success', 'Button updated successfully!', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      } else {
+        // Create new button
+        await addDoc(collection(db, 'parent-buttons'), buttonData);
+        Alert.alert('Success', 'Button created successfully!', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      }
 
     } catch (error) {
       console.error('Error saving button:', error);
@@ -191,7 +235,9 @@ export default function CreateButton() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <Text style={styles.title}>Create Communication Button</Text>
+          <Text style={styles.title}>
+            {editMode ? 'Edit Communication Button' : 'Create Communication Button'}
+          </Text>
           <TouchableOpacity 
             style={styles.backButton} 
             onPress={() => router.back()}
