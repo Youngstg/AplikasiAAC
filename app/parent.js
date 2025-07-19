@@ -14,6 +14,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import ExpoGoNotificationService from '../services/ExpoGoNotificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NotificationIndicator from '../components/NotificationIndicator';
 
 export default function ParentDashboard() {
   const { logout, currentUser } = useAuth();
@@ -21,9 +24,16 @@ export default function ParentDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [screenData, setScreenData] = useState(Dimensions.get('window'));
+  const [lastNotificationCount, setLastNotificationCount] = useState(0);
+  const [notificationStatus, setNotificationStatus] = useState('Initializing...');
+  const [showNotificationIndicator, setShowNotificationIndicator] = useState(false);
+  const [currentNotification, setCurrentNotification] = useState(null);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
+
+    // Simpan user ID untuk background task
+    AsyncStorage.setItem('currentUserId', currentUser.uid);
 
     const notificationsQuery = query(
       collection(db, 'notifications'),
@@ -44,8 +54,40 @@ export default function ParentDashboard() {
         return 0;
       });
 
+      // Cek apakah ada notifikasi baru
+      const newNotifications = notificationsList.filter(n => !n.read);
+      const currentUnreadCount = newNotifications.length;
+      
+      // Kirim notification hanya jika ada peningkatan jumlah notifikasi
+      if (currentUnreadCount > lastNotificationCount && currentUnreadCount > 0) {
+        const latestNotification = newNotifications[0];
+        if (latestNotification && latestNotification.type === 'button_pressed') {
+          // Tampilkan visual indicator
+          setCurrentNotification({
+            title: `Pesan dari ${latestNotification.fromName || 'Anak'}`,
+            message: latestNotification.message,
+            id: latestNotification.id
+          });
+          setShowNotificationIndicator(true);
+          
+          // Tampilkan Alert juga
+          ExpoGoNotificationService.showChildMessage(
+            latestNotification.fromName || 'Anak',
+            latestNotification.message,
+            () => {
+              // Navigate to message detail atau mark as read
+              markAsRead(latestNotification.id);
+            }
+          );
+        }
+      }
+
       setNotifications(notificationsList);
-      setUnreadCount(notificationsList.filter(n => !n.read).length);
+      setUnreadCount(currentUnreadCount);
+      setLastNotificationCount(currentUnreadCount);
+      
+      // Update badge count
+      ExpoGoNotificationService.setBadgeCount(currentUnreadCount);
     });
 
     return () => unsubscribe();
@@ -58,6 +100,33 @@ export default function ParentDashboard() {
     };
     
     unlockOrientation();
+
+    // Initialize notification service
+    const initNotifications = async () => {
+      try {
+        const success = await ExpoGoNotificationService.initialize();
+        if (success) {
+          setNotificationStatus('✅ Expo Go notifications enabled');
+        } else {
+          setNotificationStatus('❌ Notifications disabled');
+        }
+        
+        // Setup callback untuk message baru
+        ExpoGoNotificationService.setNewMessageCallback(() => {
+          console.log('Checking for new messages...');
+          // Firebase listener akan handle ini otomatis
+        });
+
+        return () => {
+          ExpoGoNotificationService.cleanup();
+        };
+      } catch (error) {
+        setNotificationStatus('❌ Error setting up notifications');
+        console.error('Notification setup error:', error);
+      }
+    };
+
+    initNotifications();
     
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
       setScreenData(window);
@@ -122,6 +191,20 @@ export default function ParentDashboard() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
 
+        {/* Notification Indicator */}
+        <NotificationIndicator
+          visible={showNotificationIndicator}
+          title={currentNotification?.title}
+          message={currentNotification?.message}
+          onPress={() => {
+            if (currentNotification?.id) {
+              markAsRead(currentNotification.id);
+            }
+            setShowNotificationIndicator(false);
+          }}
+          onClose={() => setShowNotificationIndicator(false)}
+        />
+
         <View style={getMainContentStyle()}>
           {/* Left Column - Status & Messages */}
           <View style={getLeftColumnStyle()}>
@@ -139,6 +222,15 @@ export default function ParentDashboard() {
                     <Text style={styles.batteryText}>50%</Text>
                   </View>
                 </View>
+                <Text style={styles.notificationStatus}>{notificationStatus}</Text>
+                <TouchableOpacity
+                  style={styles.testButton}
+                  onPress={() => {
+                    ExpoGoNotificationService.testNotification();
+                  }}
+                >
+                  <Text style={styles.testButtonText}>Test Notification</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -307,6 +399,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+  },
+  notificationStatus: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5,
+  },
+  testButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 15,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  testButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 
   // Message Card
