@@ -14,7 +14,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import ExpoGoNotificationService from '../services/ExpoGoNotificationService';
+import PushNotificationService from '../services/PushNotificationService';
+import RealTimeNotificationService from '../services/RealTimeNotificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationIndicator from '../components/NotificationIndicator';
 
@@ -70,14 +71,17 @@ export default function ParentDashboard() {
           });
           setShowNotificationIndicator(true);
           
-          // Tampilkan Alert juga
-          ExpoGoNotificationService.showChildMessage(
-            latestNotification.fromName || 'Anak',
+          // Show alert for new message
+          Alert.alert(
+            `💬 ${latestNotification.fromName || 'Anak'}`,
             latestNotification.message,
-            () => {
-              // Navigate to message detail atau mark as read
-              markAsRead(latestNotification.id);
-            }
+            [
+              {
+                text: 'Mark as Read',
+                onPress: () => markAsRead(latestNotification.id)
+              },
+              { text: 'OK' }
+            ]
           );
         }
       }
@@ -86,8 +90,7 @@ export default function ParentDashboard() {
       setUnreadCount(currentUnreadCount);
       setLastNotificationCount(currentUnreadCount);
       
-      // Update badge count
-      ExpoGoNotificationService.setBadgeCount(currentUnreadCount);
+      // Badge count will be handled by PushNotificationService
     });
 
     return () => unsubscribe();
@@ -101,24 +104,31 @@ export default function ParentDashboard() {
     
     unlockOrientation();
 
-    // Initialize notification service
+    // Initialize notification services
     const initNotifications = async () => {
       try {
-        const success = await ExpoGoNotificationService.initialize();
-        if (success) {
-          setNotificationStatus('✅ Expo Go notifications enabled');
-        } else {
-          setNotificationStatus('❌ Notifications disabled');
-        }
+        // Initialize push notification service first
+        const pushSuccess = await PushNotificationService.initialize();
         
-        // Setup callback untuk message baru
-        ExpoGoNotificationService.setNewMessageCallback(() => {
-          console.log('Checking for new messages...');
-          // Firebase listener akan handle ini otomatis
-        });
+        if (pushSuccess) {
+          // Initialize real-time notification service
+          const realTimeSuccess = await RealTimeNotificationService.initialize();
+          
+          if (realTimeSuccess) {
+            setNotificationStatus('✅ Push notifications enabled');
+            console.log('✅ All notification services initialized successfully');
+          } else {
+            setNotificationStatus('⚠️ Push enabled, real-time failed');
+            console.warn('Push notifications working, but real-time service failed');
+          }
+        } else {
+          setNotificationStatus('❌ Push notifications failed');
+          console.error('Failed to initialize push notification service');
+        }
 
         return () => {
-          ExpoGoNotificationService.cleanup();
+          RealTimeNotificationService.cleanup();
+          PushNotificationService.cleanup();
         };
       } catch (error) {
         setNotificationStatus('❌ Error setting up notifications');
@@ -223,14 +233,6 @@ export default function ParentDashboard() {
                   </View>
                 </View>
                 <Text style={styles.notificationStatus}>{notificationStatus}</Text>
-                <TouchableOpacity
-                  style={styles.testButton}
-                  onPress={() => {
-                    ExpoGoNotificationService.testNotification();
-                  }}
-                >
-                  <Text style={styles.testButtonText}>Test Notification</Text>
-                </TouchableOpacity>
               </View>
             </View>
 
@@ -515,6 +517,9 @@ const styles = StyleSheet.create({
   },
   editWordCard: {
     backgroundColor: '#a8f0c0',
+  },
+  testCard: {
+    backgroundColor: '#ffd93d',
   },
   logoutCard: {
     backgroundColor: '#f0a8a8',

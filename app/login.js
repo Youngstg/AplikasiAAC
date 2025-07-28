@@ -75,13 +75,13 @@ export default function Login() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.headerContainer}>
+          {/* <View style={styles.headerContainer}>
             <View style={styles.logoContainer}>
               <Ionicons name="chatbubbles" size={60} color="#fff" />
             </View>
             <Text style={styles.appTitle}>AplikasiAAC</Text>
             <Text style={styles.appSubtitle}>Augmentative & Alternative Communication</Text>
-          </View>
+          </View> */}
 
           <View style={styles.formContainer}>
             <Text style={styles.title}>Welcome Back</Text>
