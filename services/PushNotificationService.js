@@ -39,6 +39,11 @@ class PushNotificationService {
     }
 
     if (Device.isDevice) {
+      // Expo Go (Android) no longer supports remote push notifications (SDK 53+)
+      if (Constants?.appOwnership === 'expo' && Platform.OS === 'android') {
+        console.warn('expo-notifications remote push is not supported in Expo Go on Android. Use a development build.');
+        return null;
+      }
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
       

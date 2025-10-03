@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   backButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#764ba2',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 8,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   },
   audioButton: {
     flex: 1,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#764ba2',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   saveButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#764ba2',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -484,8 +484,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   childOptionSelected: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#007AFF',
+    backgroundColor: '#efe8fb',
+    borderColor: '#764ba2',
   },
   childOptionText: {
     fontSize: 16,
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   childOptionTextSelected: {
-    color: '#007AFF',
+    color: '#764ba2',
   },
   childOptionEmail: {
     fontSize: 14,
@@ -501,6 +501,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   childOptionEmailSelected: {
-    color: '#007AFF',
+    color: '#764ba2',
   },
 });

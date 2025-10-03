@@ -13,6 +13,7 @@ import {
   Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +48,19 @@ export default function Login() {
         useNativeDriver: true,
       })
     ]).start();
+  }, []);
+
+  // Force portrait on login screen to avoid leftover landscape from child page
+  React.useEffect(() => {
+    const lock = async () => {
+      try {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+      } catch {}
+    };
+    lock();
+    return () => {
+      try { ScreenOrientation.unlockAsync(); } catch {}
+    };
   }, []);
 
   const handleLogin = async () => {

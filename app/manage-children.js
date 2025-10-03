@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   backButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#764ba2',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 8,
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   codeText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#764ba2',
     textAlign: 'center',
     marginBottom: 15,
     letterSpacing: 2,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   createButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#764ba2',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',

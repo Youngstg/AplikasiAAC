@@ -85,9 +85,9 @@ export default function Signup() {
       };
 
       await signup(email, password, userData);
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => router.replace('/') }
-      ]);
+      // On web, Alert button callbacks aren’t supported; navigate immediately
+      try { Alert.alert('Success', 'Account created successfully!'); } catch {}
+      router.replace('/');
     } catch (error) {
       console.error('Signup error:', error);
       Alert.alert('Signup Error', error.message);
