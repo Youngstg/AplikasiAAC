@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,27 +7,80 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  Dimensions,
-  Platform
+  Linking
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import * as ScreenOrientation from 'expo-screen-orientation';
-
-const { width, height } = Dimensions.get('window');
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { db } from '../firebaseConfig';
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChildSettings() {
   const { logout, currentUser, getUserData } = useAuth();
   const router = useRouter();
   const [userData, setUserData] = useState(null);
+  const [parentPhone, setParentPhone] = useState('');
+  const [lastMessage, setLastMessage] = useState('');
+  const [favorites, setFavorites] = useState([]);
 
   useEffect(() => {
     if (currentUser?.uid) {
-      getUserData(currentUser.uid).then(profile => {
+      getUserData(currentUser.uid).then((profile) => {
         setUserData(profile);
       });
     }
+    loadParentInfo();
+    loadFavorites();
+    loadLastMessage();
   }, [currentUser]);
+
+  const loadLastMessage = async () => {
+    try {
+      const message = await AsyncStorage.getItem('lastMessage');
+      if (message) {
+        setLastMessage(message);
+      }
+    } catch (error) {
+      console.error('Error loading last message:', error);
+    }
+  };
+
+  const loadParentInfo = async () => {
+    if (!currentUser?.email) return;
+    try {
+      const connectionsQuery = query(
+        collection(db, 'parent-child-connections'),
+        where('childEmail', '==', currentUser.email),
+        where('status', '==', 'active')
+      );
+      const connectionsSnapshot = await getDocs(connectionsQuery);
+      if (!connectionsSnapshot.empty) {
+        const connection = connectionsSnapshot.docs[0].data();
+        setParentPhone(connection.parentPhone || '');
+      }
+    } catch (error) {
+      console.error('Error loading parent info:', error);
+    }
+  };
+
+  const loadFavorites = async () => {
+    try {
+      const favoritesQuery = query(
+        collection(db, 'favorites'),
+        where('childEmail', '==', currentUser.email)
+      );
+      const favoritesSnapshot = await getDocs(favoritesQuery);
+      const favList = favoritesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setFavorites(favList);
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+    }
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -55,48 +108,112 @@ export default function ChildSettings() {
     router.back();
   };
 
+  const handleCallParent = async () => {
+    if (!parentPhone) {
+      Alert.alert('No Parent Phone', 'Parent phone number not found. Please contact your parent.');
+      return;
+    }
+    
+    try {
+      const phoneUrl = `tel:${parentPhone}`;
+      await Linking.openURL(phoneUrl);
+    } catch (error) {
+      Alert.alert('Error', 'Could not initiate call');
+    }
+  };
+
+  const handleRepeatLast = () => {
+    if (!lastMessage) {
+      Alert.alert('No Last Message', 'No previous message to repeat. Use buttons first.');
+      return;
+    }
+    Alert.alert('Repeated Message', lastMessage);
+  };
+
+  const handleViewFavorites = () => {
+    if (favorites.length === 0) {
+      Alert.alert('No Favorites', 'You have no favorite messages yet.');
+      return;
+    }
+    
+    const favoritesList = favorites.map(f => f.message).join(', ');
+    Alert.alert('Your Favorites', favoritesList);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-            <Text style={styles.backButtonText}>←</Text>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleGoBack}
+            activeOpacity={0.8}
+          >
+            <Feather name="arrow-left" size={22} color="#333333" />
           </TouchableOpacity>
           <Text style={styles.title}>Settings</Text>
         </View>
 
         <View style={styles.userContainer}>
-          <Text style={styles.welcomeText}>Hello! 👋</Text>
+          <Text style={styles.welcomeText}>Welcome back</Text>
           <Text style={styles.usernameText}>{userData?.name || currentUser?.email}</Text>
         </View>
 
         <View style={styles.quickActionsContainer}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
-            <TouchableOpacity style={styles.quickActionButton}>
-              <Text style={styles.quickActionEmoji}>📞</Text>
-              <Text style={styles.quickActionText}>Call Parent</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickActionButton}>
-              <Text style={styles.quickActionEmoji}>🔊</Text>
-              <Text style={styles.quickActionText}>Repeat Last</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickActionButton}>
-              <Text style={styles.quickActionEmoji}>❤️</Text>
-              <Text style={styles.quickActionText}>Favorites</Text>
-            </TouchableOpacity>
             <TouchableOpacity 
               style={styles.quickActionButton}
-              onPress={() => router.push('/connect-parent')}
+              onPress={handleCallParent}
+              activeOpacity={0.85}
             >
-              <Text style={styles.quickActionEmoji}>👨‍👩‍👧‍👦</Text>
+              <View style={styles.quickActionIcon}>
+                <Feather name="phone-call" size={18} color="#3a7bd5" />
+              </View>
+              <Text style={styles.quickActionText}>Call Parent</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={handleRepeatLast}
+              activeOpacity={0.85}
+            >
+              <View style={styles.quickActionIcon}>
+                <Feather name="repeat" size={18} color="#3a7bd5" />
+              </View>
+              <Text style={styles.quickActionText}>Repeat Last</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={handleViewFavorites}
+              activeOpacity={0.85}
+            >
+              <View style={styles.quickActionIcon}>
+                <Feather name="star" size={18} color="#3a7bd5" />
+              </View>
+              <Text style={styles.quickActionText}>Favorites</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickActionButton}
+              onPress={() => router.push('/connect-parent')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.quickActionIcon}>
+                <Feather name="link" size={18} color="#3a7bd5" />
+              </View>
               <Text style={styles.quickActionText}>Connect Parent</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.logoutContainer}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.85}
+          >
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -117,106 +234,113 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 24,
   },
   backButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginRight: 15,
-  },
-  backButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   userContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
     padding: 20,
-    marginBottom: 30,
+    marginBottom: 24,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
   },
   welcomeText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#333333',
+    marginBottom: 6,
   },
   usernameText: {
     fontSize: 16,
-    color: '#666',
+    color: '#666666',
   },
   quickActionsContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
     padding: 20,
-    marginBottom: 30,
+    marginBottom: 24,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    fontWeight: '700',
+    color: '#333333',
+    marginBottom: 16,
   },
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 15,
+    gap: 16,
   },
   quickActionButton: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
+    width: '47%',
+    borderRadius: 12,
+    paddingVertical: 18,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    width: '45%',
-    minHeight: 100,
-    justifyContent: 'center',
+    backgroundColor: '#f5f6ff',
+    borderWidth: 1,
+    borderColor: '#dee3ff',
+    gap: 10,
   },
-  quickActionEmoji: {
-    fontSize: 30,
-    marginBottom: 10,
+  quickActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
   },
   quickActionText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
     textAlign: 'center',
   },
   logoutContainer: {
     alignItems: 'center',
-    marginTop: 20,
+    marginBottom: 32,
   },
   logoutButton: {
-    backgroundColor: '#ff4444',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    minWidth: 200,
+    backgroundColor: '#ff5b5b',
+    paddingHorizontal: 40,
+    paddingVertical: 14,
+    borderRadius: 24,
   },
   logoutButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 18,
-    textAlign: 'center',
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 16,
   },
 });

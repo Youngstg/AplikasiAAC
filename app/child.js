@@ -16,8 +16,10 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { db } from '../firebaseConfig';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { Audio } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Battery from 'expo-battery';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,7 +54,56 @@ export default function ChildDashboard() {
 
   useEffect(() => {
     loadCustomButtons();
+    updateBatteryInfo();
   }, [currentUser]);
+
+  const updateBatteryInfo = async () => {
+    if (!currentUser?.uid) return;
+
+    try {
+      const level = await Battery.getBatteryLevelAsync();
+      const state = await Battery.getBatteryStateAsync();
+      const batteryPercent = Math.round(level * 100);
+
+      await setDoc(
+        doc(db, 'child-status', currentUser.uid),
+        {
+          childId: currentUser.uid,
+          childEmail: currentUser.email,
+          batteryLevel: batteryPercent,
+          batteryState: state,
+          lastUpdate: serverTimestamp(),
+          status: 'active'
+        },
+        { merge: true }
+      );
+    } catch (error) {
+      console.error('Error updating battery info:', error);
+    }
+
+    // Update every 30 seconds
+    const interval = setInterval(async () => {
+      try {
+        const level = await Battery.getBatteryLevelAsync();
+        const state = await Battery.getBatteryStateAsync();
+        const batteryPercent = Math.round(level * 100);
+
+        await setDoc(
+          doc(db, 'child-status', currentUser.uid),
+          {
+            batteryLevel: batteryPercent,
+            batteryState: state,
+            lastUpdate: serverTimestamp()
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.error('Error updating battery info:', error);
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  };
 
   const loadCustomButtons = async () => {
     if (!currentUser?.email) return;
@@ -100,6 +151,9 @@ export default function ChildDashboard() {
     // Add word to input text
     const newText = inputText ? `${inputText} ${button.text}` : button.text;
     setInputText(newText);
+    
+    // Save last message for repeat functionality
+    AsyncStorage.setItem('lastMessage', newText).catch(err => console.error('Error saving last message:', err));
     
     // Add audio to queue if available
     if (button.audioBase64) {
@@ -229,7 +283,7 @@ export default function ChildDashboard() {
             style={styles.playButtonTop}
             onPress={handlePlayAudio}
           >
-            <Text style={styles.playButtonTopText}>▶</Text>
+            <Text style={styles.playButtonTopText}>Play</Text>
           </TouchableOpacity>
         </View>
 
@@ -431,8 +485,9 @@ const styles = StyleSheet.create({
     height: 50,
   },
   playButtonTopText: {
-    fontSize: 20,
+    fontSize: 14,
     color: 'black',
+    fontWeight: 'bold',
   },
   controlsContainer: {
     flexDirection: 'row',

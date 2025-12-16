@@ -12,12 +12,14 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDocs, getDoc } from 'firebase/firestore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import PushNotificationService from '../services/PushNotificationService';
 import RealTimeNotificationService from '../services/RealTimeNotificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationIndicator from '../components/NotificationIndicator';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 export default function ParentDashboard() {
   const { logout, currentUser } = useAuth();
@@ -29,12 +31,34 @@ export default function ParentDashboard() {
   const [notificationStatus, setNotificationStatus] = useState('Initializing...');
   const [showNotificationIndicator, setShowNotificationIndicator] = useState(false);
   const [currentNotification, setCurrentNotification] = useState(null);
+  const [batteryLevel, setBatteryLevel] = useState(null);
+  const [childId, setChildId] = useState(null);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
 
     // Simpan user ID untuk background task
     AsyncStorage.setItem('currentUserId', currentUser.uid);
+
+    // Load first connected child's battery info
+    const loadChildInfo = async () => {
+      try {
+        const connectionsQuery = query(
+          collection(db, 'parent-child-connections'),
+          where('parentId', '==', currentUser.uid),
+          where('status', '==', 'active')
+        );
+        const connectionsSnapshot = await getDocs(connectionsQuery);
+        if (!connectionsSnapshot.empty) {
+          const firstChild = connectionsSnapshot.docs[0].data();
+          setChildId(firstChild.childId);
+        }
+      } catch (error) {
+        console.error('Error loading child info:', error);
+      }
+    };
+
+    loadChildInfo();
 
     const notificationsQuery = query(
       collection(db, 'notifications'),
@@ -91,6 +115,22 @@ export default function ParentDashboard() {
       setLastNotificationCount(currentUnreadCount);
       
       // Badge count will be handled by PushNotificationService
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Battery info listener
+  useEffect(() => {
+    if (!childId) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'child-status', childId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setBatteryLevel(data?.batteryLevel || null);
+      }
+    }, (error) => {
+      console.error('Error listening to battery info:', error);
     });
 
     return () => unsubscribe();
@@ -221,15 +261,15 @@ export default function ParentDashboard() {
             {/* Child Status Card */}
             <View style={styles.childStatusCard}>
               <View style={styles.childAvatar}>
-                <Text style={styles.avatarText}>👶</Text>
+                <Text style={styles.avatarText}>C</Text>
               </View>
               <View style={styles.childInfo}>
                 <Text style={styles.childName}>Child Tablet</Text>
                 <View style={styles.statusRow}>
                   <Text style={styles.statusText}>Active</Text>
                   <View style={styles.batteryContainer}>
-                    <Text style={styles.batteryIcon}>🔋</Text>
-                    <Text style={styles.batteryText}>50%</Text>
+                    <Text style={styles.batteryLabel}>Battery: </Text>
+                    <Text style={styles.batteryText}>{batteryLevel !== null ? `${batteryLevel}%` : '--'}</Text>
                   </View>
                 </View>
                 <Text style={styles.notificationStatus}>{notificationStatus}</Text>
@@ -272,19 +312,19 @@ export default function ParentDashboard() {
           <View style={getRightColumnStyle()}>
             <View style={styles.menuGrid}>
               <TouchableOpacity 
+                style={[styles.menuCard, styles.manageChildrenCard]}
+                onPress={() => router.push('/manage-children')}
+              >
+                <Text style={styles.menuTitle}>Manage{'\n'}Children</Text>
+                <Text style={styles.menuDescription}>Invite{'\n'}Approve{'\n'}Link</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
                 style={[styles.menuCard, styles.addWordCard]}
                 onPress={() => router.push('/create-button')}
               >
                 <Text style={styles.menuTitle}>Add{'\n'}Word</Text>
                 <Text style={styles.menuDescription}>Word{'\n'}Image{'\n'}Sound</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.menuCard, styles.pinWordCard]}
-                onPress={() => router.push('/manage-children')}
-              >
-                <Text style={styles.menuTitle}>Connect{'\n'}Child</Text>
-                <Text style={styles.menuDescription}>Manage{'\n'}Children</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -393,9 +433,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  batteryIcon: {
+  batteryLabel: {
     fontSize: 16,
-    marginRight: 5,
+    color: '#666',
+    marginRight: 4,
   },
   batteryText: {
     fontSize: 16,
@@ -509,11 +550,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  manageChildrenCard: {
+    backgroundColor: '#c9b1f0',
+  },
   addWordCard: {
     backgroundColor: '#a8d0f0',
-  },
-  pinWordCard: {
-    backgroundColor: '#f0a8c0',
   },
   editWordCard: {
     backgroundColor: '#a8f0c0',
