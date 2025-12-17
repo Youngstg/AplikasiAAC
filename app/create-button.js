@@ -13,10 +13,10 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebaseConfig';
-import { collection, addDoc, doc, getDoc, updateDoc, arrayUnion, getDocs, query, where } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
+import { getRecord, updateRecord } from '../services/database.service';
+import { getParentChildConnections, createButton, updateButton } from '../services/parent.service';
 
 export default function CreateButton() {
   const { currentUser } = useAuth();
@@ -57,10 +57,10 @@ export default function CreateButton() {
         setSelectedChild(childConnection);
       }
       
-      // Load the actual button data from Firestore to get image and audio
-      const buttonDoc = await getDoc(doc(db, 'parent-buttons', params.buttonId));
-      if (buttonDoc.exists()) {
-        const buttonData = buttonDoc.data();
+      // Load the actual button data from Realtime Database to get image and audio
+      const result = await getRecord(`parent-buttons/${params.buttonId}`);
+      if (result.success && result.data) {
+        const buttonData = result.data;
         if (buttonData.imageBase64) {
           setImage({ uri: buttonData.imageBase64 });
         }
@@ -75,17 +75,11 @@ export default function CreateButton() {
 
   const loadConnectedChildren = async () => {
     try {
-      const connectionsQuery = query(
-        collection(db, 'parent-child-connections'),
-        where('parentId', '==', currentUser.uid),
-        where('status', '==', 'active')
-      );
-      const snapshot = await getDocs(connectionsQuery);
-      const children = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setConnectedChildren(children);
+      const result = await getParentChildConnections(currentUser.email);
+      if (result.success) {
+        const activeChildren = result.data.filter(conn => conn.status === 'active');
+        setConnectedChildren(activeChildren);
+      }
     } catch (error) {
       console.error('Error loading connected children:', error);
     }
@@ -211,16 +205,24 @@ export default function CreateButton() {
       // Save to parent-buttons collection
       if (editMode && editingButtonId) {
         // Update existing button
-        await updateDoc(doc(db, 'parent-buttons', editingButtonId), buttonData);
-        Alert.alert('Success', 'Button updated successfully!', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+        const result = await updateButton(editingButtonId, buttonData);
+        if (result.success) {
+          Alert.alert('Success', 'Button updated successfully!', [
+            { text: 'OK', onPress: () => router.back() }
+          ]);
+        } else {
+          Alert.alert('Error', 'Failed to update button');
+        }
       } else {
         // Create new button
-        await addDoc(collection(db, 'parent-buttons'), buttonData);
-        Alert.alert('Success', 'Button created successfully!', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+        const result = await createButton(buttonData);
+        if (result.success) {
+          Alert.alert('Success', 'Button created successfully!', [
+            { text: 'OK', onPress: () => router.back() }
+          ]);
+        } else {
+          Alert.alert('Error', 'Failed to create button');
+        }
       }
 
     } catch (error) {

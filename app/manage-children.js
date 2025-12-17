@@ -14,16 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebaseConfig';
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  where,
-} from 'firebase/firestore';
+import { queryRecords, deleteRecord } from '../services/database.service';
+import { createInviteCode as createInvite } from '../services/invite.service';
 
 export default function ManageChildren() {
   const { currentUser, userRole } = useAuth();
@@ -68,18 +60,13 @@ export default function ManageChildren() {
 
     try {
       const roleField = isParent ? 'parentId' : 'childId';
-      const connectionsQuery = query(
-        collection(db, 'parent-child-connections'),
-        where(roleField, '==', currentUser.uid)
-      );
+      const result = await queryRecords('parent-child-connections', roleField, currentUser.uid);
 
-      const snapshot = await getDocs(connectionsQuery);
-      const data = snapshot.docs.map((document) => ({
-        id: document.id,
-        ...document.data(),
-      }));
-
-      setConnections(data);
+      if (result.success) {
+        setConnections(result.data);
+      } else {
+        Alert.alert('Error', 'Failed to load connections. Please try again.');
+      }
     } catch (error) {
       console.error('Error loading connections:', error);
       Alert.alert('Error', 'Failed to load connections. Please try again.');
@@ -96,27 +83,30 @@ export default function ManageChildren() {
     setLoadingInvite(true);
 
     try {
-      await addDoc(collection(db, 'invite-codes'), {
+      const result = await createInvite({
         code: inviteCode,
         parentId: currentUser.uid,
         parentEmail: currentUser.email,
         parentName: currentUser.displayName || currentUser.email,
-        createdAt: new Date().toISOString(),
         used: false,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       });
 
-      Alert.alert(
-        'Invite Code Ready',
-        `Share this code with your child: ${inviteCode}`,
-        [
-          { text: 'Close' },
-          {
-            text: 'Share Now',
-            onPress: shareInviteCode,
-          },
-        ]
-      );
+      if (result.success) {
+        Alert.alert(
+          'Invite Code Ready',
+          `Share this code with your child: ${inviteCode}`,
+          [
+            { text: 'Close' },
+            {
+              text: 'Share Now',
+              onPress: shareInviteCode,
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to create invite code. Please try again.');
+      }
     } catch (error) {
       console.error('Error creating invite code:', error);
       Alert.alert('Error', 'Failed to create invite code. Please try again.');
@@ -150,12 +140,16 @@ export default function ManageChildren() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteDoc(doc(db, 'parent-child-connections', connectionId));
-            loadConnections();
-            Alert.alert(
-              'Success',
-              isParent ? 'Child removed successfully.' : 'Disconnected successfully.'
-            );
+            const result = await deleteRecord(`parent-child-connections/${connectionId}`);
+            if (result.success) {
+              loadConnections();
+              Alert.alert(
+                'Success',
+                isParent ? 'Child removed successfully.' : 'Disconnected successfully.'
+              );
+            } else {
+              Alert.alert('Error', 'Failed to update the connection. Please try again.');
+            }
           } catch (error) {
             console.error('Error removing connection:', error);
             Alert.alert('Error', 'Failed to update the connection. Please try again.');

@@ -13,9 +13,10 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { db } from '../firebaseConfig';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Audio } from 'expo-av';
+import { getFavorites } from '../services/child.service';
+import { getChildConnections } from '../services/parent.service';
+import { getLastMessage } from '../services/storage.service';
 
 export default function ChildSettings() {
   const { logout, currentUser, getUserData } = useAuth();
@@ -23,6 +24,7 @@ export default function ChildSettings() {
   const [userData, setUserData] = useState(null);
   const [parentPhone, setParentPhone] = useState('');
   const [lastMessage, setLastMessage] = useState('');
+  const [lastAudioQueue, setLastAudioQueue] = useState([]);
   const [favorites, setFavorites] = useState([]);
 
   useEffect(() => {
@@ -38,9 +40,10 @@ export default function ChildSettings() {
 
   const loadLastMessage = async () => {
     try {
-      const message = await AsyncStorage.getItem('lastMessage');
-      if (message) {
-        setLastMessage(message);
+      const result = await getLastMessage();
+      if (result.success) {
+        setLastMessage(result.data.message);
+        setLastAudioQueue(result.data.audioQueue);
       }
     } catch (error) {
       console.error('Error loading last message:', error);
@@ -50,15 +53,12 @@ export default function ChildSettings() {
   const loadParentInfo = async () => {
     if (!currentUser?.email) return;
     try {
-      const connectionsQuery = query(
-        collection(db, 'parent-child-connections'),
-        where('childEmail', '==', currentUser.email),
-        where('status', '==', 'active')
-      );
-      const connectionsSnapshot = await getDocs(connectionsQuery);
-      if (!connectionsSnapshot.empty) {
-        const connection = connectionsSnapshot.docs[0].data();
-        setParentPhone(connection.parentPhone || '');
+      const result = await getChildConnections(currentUser.email);
+      if (result.success && result.data.length > 0) {
+        const activeConnection = result.data.find(conn => conn.status === 'active');
+        if (activeConnection) {
+          setParentPhone(activeConnection.parentPhone || '');
+        }
       }
     } catch (error) {
       console.error('Error loading parent info:', error);
@@ -67,16 +67,10 @@ export default function ChildSettings() {
 
   const loadFavorites = async () => {
     try {
-      const favoritesQuery = query(
-        collection(db, 'favorites'),
-        where('childEmail', '==', currentUser.email)
-      );
-      const favoritesSnapshot = await getDocs(favoritesQuery);
-      const favList = favoritesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setFavorites(favList);
+      const result = await getFavorites(currentUser.email);
+      if (result.success) {
+        setFavorites(result.data);
+      }
     } catch (error) {
       console.error('Error loading favorites:', error);
     }
@@ -122,12 +116,37 @@ export default function ChildSettings() {
     }
   };
 
-  const handleRepeatLast = () => {
+  const handleRepeatLast = async () => {
     if (!lastMessage) {
       Alert.alert('No Last Message', 'No previous message to repeat. Use buttons first.');
       return;
     }
-    Alert.alert('Repeated Message', lastMessage);
+
+    // Play audio if available
+    if (lastAudioQueue && lastAudioQueue.length > 0) {
+      try {
+        for (const audioBase64 of lastAudioQueue) {
+          const { sound } = await Audio.Sound.createAsync({ uri: audioBase64 });
+          await sound.playAsync();
+
+          // Wait for audio to finish before playing next
+          await new Promise((resolve) => {
+            sound.setOnPlaybackStatusUpdate((status) => {
+              if (status.didJustFinish) {
+                sound.unloadAsync();
+                resolve();
+              }
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error playing audio:', error);
+        Alert.alert('Error', 'Failed to play audio. Showing text instead: ' + lastMessage);
+      }
+    } else {
+      // If no audio available, show text message
+      Alert.alert('Repeated Message', lastMessage);
+    }
   };
 
   const handleViewFavorites = () => {

@@ -11,8 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebaseConfig';
-import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { getParentButtons, deleteButton } from '../services/parent.service';
 
 export default function EditWord() {
   const { currentUser } = useAuth();
@@ -29,33 +28,14 @@ export default function EditWord() {
 
     try {
       setLoading(true);
-      console.log('Loading buttons for parent ID:', currentUser.uid);
-      const buttonsQuery = query(
-        collection(db, 'parent-buttons'),
-        where('parentId', '==', currentUser.uid)
-      );
-      const querySnapshot = await getDocs(buttonsQuery);
-      const buttons = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        // Use the Firestore document ID as the button ID, not the custom id field
-        const button = {
-          id: doc.id,  // This is the real Firestore document ID
-          ...data
-        };
-        // Remove the custom id field if it exists to avoid confusion
-        delete button.id;
-        button.id = doc.id;
-        
-        console.log('Button loaded:', { 
-          firestoreId: doc.id, 
-          text: data.text,
-          customId: data.id || 'none'
-        });
-        return button;
-      });
-      console.log('Found buttons:', buttons.length);
-      console.log('All buttons:', buttons);
-      setCustomButtons(buttons);
+      console.log('Loading buttons for parent email:', currentUser.email);
+
+      const result = await getParentButtons(currentUser.email);
+      if (result.success) {
+        console.log('Found buttons:', result.data.length);
+        console.log('All buttons:', result.data);
+        setCustomButtons(result.data);
+      }
     } catch (error) {
       console.error('Error loading custom buttons:', error);
       Alert.alert('Error', 'Failed to load buttons');
@@ -102,40 +82,26 @@ export default function EditWord() {
               // Create document reference
               const docRef = doc(db, 'parent-buttons', button.id);
               console.log('Document reference created:', docRef.path);
-              
-              // Check if document exists first
-              const docSnap = await getDoc(docRef);
-              console.log('Document exists:', docSnap.exists());
-              
-              if (!docSnap.exists()) {
-                throw new Error('Document does not exist');
-              }
-              
+
               // Perform the delete
-              console.log('Attempting to delete document...');
-              await deleteDoc(docRef);
-              console.log('Delete operation completed successfully');
-              
-              Alert.alert('Success', 'Button deleted successfully');
-              loadCustomButtons(); // Refresh the list
-              
+              console.log('Attempting to delete button...');
+              const result = await deleteButton(button.id);
+
+              if (result.success) {
+                console.log('Delete operation completed successfully');
+                Alert.alert('Success', 'Button deleted successfully');
+                loadCustomButtons(); // Refresh the list
+              } else {
+                console.error('Delete failed:', result.error);
+                Alert.alert('Error', `Failed to delete button: ${result.error}`);
+              }
+
             } catch (error) {
               console.error('=== DELETE ERROR ===');
               console.error('Error deleting button:', error);
-              console.error('Error code:', error.code);
-              console.error('Error message:', error.message);
-              console.error('Full error object:', JSON.stringify(error, null, 2));
               console.error('Button ID that failed:', button.id);
-              
-              if (error.code === 'unavailable') {
-                Alert.alert('Network Error', 'Please check your internet connection and try again.');
-              } else if (error.code === 'not-found') {
-                Alert.alert('Error', 'Button not found. It may have been already deleted.');
-              } else if (error.code === 'permission-denied') {
-                Alert.alert('Error', 'Permission denied. You may not have access to delete this button.');
-              } else {
-                Alert.alert('Error', `Failed to delete button: ${error.message}`);
-              }
+
+              Alert.alert('Error', `Failed to delete button: ${error.message}`);
             }
           }
         }

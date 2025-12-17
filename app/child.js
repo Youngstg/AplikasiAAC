@@ -15,11 +15,11 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { db } from '../firebaseConfig';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { Audio } from 'expo-av';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Battery from 'expo-battery';
+import { getCustomButtons, updateChildStatus } from '../services/child.service';
+import { sendNotificationToParent } from '../services/notification.service';
+import { saveLastMessage } from '../services/storage.service';
 
 const { width, height } = Dimensions.get('window');
 
@@ -65,18 +65,13 @@ export default function ChildDashboard() {
       const state = await Battery.getBatteryStateAsync();
       const batteryPercent = Math.round(level * 100);
 
-      await setDoc(
-        doc(db, 'child-status', currentUser.uid),
-        {
-          childId: currentUser.uid,
-          childEmail: currentUser.email,
-          batteryLevel: batteryPercent,
-          batteryState: state,
-          lastUpdate: serverTimestamp(),
-          status: 'active'
-        },
-        { merge: true }
-      );
+      await updateChildStatus(currentUser.uid, {
+        childId: currentUser.uid,
+        childEmail: currentUser.email,
+        batteryLevel: batteryPercent,
+        batteryState: state,
+        status: 'active'
+      });
     } catch (error) {
       console.error('Error updating battery info:', error);
     }
@@ -88,15 +83,10 @@ export default function ChildDashboard() {
         const state = await Battery.getBatteryStateAsync();
         const batteryPercent = Math.round(level * 100);
 
-        await setDoc(
-          doc(db, 'child-status', currentUser.uid),
-          {
-            batteryLevel: batteryPercent,
-            batteryState: state,
-            lastUpdate: serverTimestamp()
-          },
-          { merge: true }
-        );
+        await updateChildStatus(currentUser.uid, {
+          batteryLevel: batteryPercent,
+          batteryState: state
+        });
       } catch (error) {
         console.error('Error updating battery info:', error);
       }
@@ -109,16 +99,10 @@ export default function ChildDashboard() {
     if (!currentUser?.email) return;
 
     try {
-      const buttonsQuery = query(
-        collection(db, 'parent-buttons'),
-        where('childEmail', '==', currentUser.email)
-      );
-      const querySnapshot = await getDocs(buttonsQuery);
-      const buttons = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setCustomButtons(buttons);
+      const result = await getCustomButtons(currentUser.email);
+      if (result.success) {
+        setCustomButtons(result.data);
+      }
     } catch (error) {
       console.error('Error loading custom buttons:', error);
     }
@@ -147,55 +131,27 @@ export default function ChildDashboard() {
 
   const handleCustomButtonPress = async (button) => {
     setSelectedMessage(button.text);
-    
+
     // Add word to input text
     const newText = inputText ? `${inputText} ${button.text}` : button.text;
     setInputText(newText);
-    
-    // Save last message for repeat functionality
-    AsyncStorage.setItem('lastMessage', newText).catch(err => console.error('Error saving last message:', err));
-    
+
     // Add audio to queue if available
     if (button.audioBase64) {
       setAudioQueue(prev => [...prev, button.audioBase64]);
     }
   };
 
-  const sendNotificationToParent = async (message) => {
+  const sendNotification = async (message) => {
     if (!currentUser?.email || !message.trim()) return;
 
     try {
-      // Get parent info from parent-child connections
-      const connectionsQuery = query(
-        collection(db, 'parent-child-connections'),
-        where('childEmail', '==', currentUser.email),
-        where('status', '==', 'active')
+      await sendNotificationToParent(
+        currentUser.email,
+        currentUser.uid,
+        currentUser.displayName || currentUser.email,
+        message
       );
-      
-      const connectionsSnapshot = await getDocs(connectionsQuery);
-      
-      if (connectionsSnapshot.empty) {
-        console.log('No parent connection found');
-        return;
-      }
-
-      // Send notification to each connected parent
-      for (const doc of connectionsSnapshot.docs) {
-        const connection = doc.data();
-        
-        await addDoc(collection(db, 'notifications'), {
-          fromId: currentUser.uid,
-          fromEmail: currentUser.email,
-          fromName: currentUser.displayName || currentUser.email,
-          toId: connection.parentId,
-          toEmail: connection.parentEmail,
-          toName: connection.parentName,
-          message: message,
-          timestamp: serverTimestamp(),
-          read: false,
-          type: 'button_pressed'
-        });
-      }
     } catch (error) {
       console.error('Error sending notification:', error);
     }
@@ -207,9 +163,14 @@ export default function ChildDashboard() {
       return;
     }
 
+    // Save last message and audio queue for repeat functionality
+    if (inputText.trim()) {
+      await saveLastMessage(inputText, audioQueue);
+    }
+
     // Send notification to parent with input text
     if (inputText.trim()) {
-      await sendNotificationToParent(inputText);
+      await sendNotification(inputText);
     }
 
     // Play audio if available
@@ -218,7 +179,7 @@ export default function ChildDashboard() {
         for (const audioBase64 of audioQueue) {
           const { sound } = await Audio.Sound.createAsync({ uri: audioBase64 });
           await sound.playAsync();
-          
+
           // Wait for audio to finish before playing next
           await new Promise((resolve) => {
             sound.setOnPlaybackStatusUpdate((status) => {

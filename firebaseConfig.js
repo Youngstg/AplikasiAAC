@@ -1,11 +1,11 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 
 // Firebase configuration
-// TODO: Replace with your Firebase project configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBHDmuLbRiCmfkwJ28aqA8_aOnaXDhq97U",
   authDomain: "aplikasiaac-4bbab.firebaseapp.com",
+  databaseURL: "https://aplikasiaac-4bbab-default-rtdb.firebaseio.com",
   projectId: "aplikasiaac-4bbab",
   storageBucket: "aplikasiaac-4bbab.appspot.com",
   messagingSenderId: "798044982093",
@@ -42,7 +42,7 @@ if (!auth) {
 
 export { auth };
 
-// Initialize Cloud Firestore
-export const db = getFirestore(app);
+// Initialize Realtime Database
+export const db = getDatabase(app);
 
 export default app;

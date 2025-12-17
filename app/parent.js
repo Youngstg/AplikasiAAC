@@ -11,8 +11,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebaseConfig';
-import { collection, query, where, onSnapshot, doc, updateDoc, getDocs, getDoc } from 'firebase/firestore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import PushNotificationService from '../services/PushNotificationService';
 import RealTimeNotificationService from '../services/RealTimeNotificationService';
@@ -20,6 +18,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationIndicator from '../components/NotificationIndicator';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { subscribeToQuery, subscribeToPath, getRecord } from '../services/database.service';
+import { getParentChildConnections } from '../services/parent.service';
+import { markAsRead as markNotificationAsRead } from '../services/notification.service';
 
 export default function ParentDashboard() {
   const { logout, currentUser } = useAuth();
@@ -43,15 +44,12 @@ export default function ParentDashboard() {
     // Load first connected child's battery info
     const loadChildInfo = async () => {
       try {
-        const connectionsQuery = query(
-          collection(db, 'parent-child-connections'),
-          where('parentId', '==', currentUser.uid),
-          where('status', '==', 'active')
-        );
-        const connectionsSnapshot = await getDocs(connectionsQuery);
-        if (!connectionsSnapshot.empty) {
-          const firstChild = connectionsSnapshot.docs[0].data();
-          setChildId(firstChild.childId);
+        const result = await getParentChildConnections(currentUser.email);
+        if (result.success && result.data.length > 0) {
+          const activeChild = result.data.find(conn => conn.status === 'active');
+          if (activeChild) {
+            setChildId(activeChild.childId);
+          }
         }
       } catch (error) {
         console.error('Error loading child info:', error);
@@ -60,29 +58,19 @@ export default function ParentDashboard() {
 
     loadChildInfo();
 
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('toId', '==', currentUser.uid)
-    );
-
-    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
-      const notificationsList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
+    // Subscribe to notifications using Realtime Database
+    const unsubscribe = subscribeToQuery('notifications', 'toId', currentUser.uid, (notificationsList) => {
       // Sort by timestamp (newest first)
       notificationsList.sort((a, b) => {
-        if (a.timestamp && b.timestamp) {
-          return b.timestamp.seconds - a.timestamp.seconds;
-        }
-        return 0;
+        const timeA = a.timestamp || 0;
+        const timeB = b.timestamp || 0;
+        return timeB - timeA;
       });
 
       // Cek apakah ada notifikasi baru
       const newNotifications = notificationsList.filter(n => !n.read);
       const currentUnreadCount = newNotifications.length;
-      
+
       // Kirim notification hanya jika ada peningkatan jumlah notifikasi
       if (currentUnreadCount > lastNotificationCount && currentUnreadCount > 0) {
         const latestNotification = newNotifications[0];
@@ -94,7 +82,7 @@ export default function ParentDashboard() {
             id: latestNotification.id
           });
           setShowNotificationIndicator(true);
-          
+
           // Show alert for new message
           Alert.alert(
             `💬 ${latestNotification.fromName || 'Anak'}`,
@@ -113,7 +101,7 @@ export default function ParentDashboard() {
       setNotifications(notificationsList);
       setUnreadCount(currentUnreadCount);
       setLastNotificationCount(currentUnreadCount);
-      
+
       // Badge count will be handled by PushNotificationService
     });
 
@@ -124,17 +112,14 @@ export default function ParentDashboard() {
   useEffect(() => {
     if (!childId) return;
 
-    const unsubscribe = onSnapshot(doc(db, 'child-status', childId), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    const unsubscribe = subscribeToPath(`child-status/${childId}`, (data) => {
+      if (data) {
         setBatteryLevel(data?.batteryLevel || null);
       }
-    }, (error) => {
-      console.error('Error listening to battery info:', error);
     });
 
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [childId]);
 
   useEffect(() => {
     // Unlock orientation for parent page
@@ -187,9 +172,7 @@ export default function ParentDashboard() {
 
   const markAsRead = async (notificationId) => {
     try {
-      await updateDoc(doc(db, 'notifications', notificationId), {
-        read: true
-      });
+      await markNotificationAsRead(notificationId);
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -197,7 +180,7 @@ export default function ParentDashboard() {
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate();
+    const date = new Date(timestamp);
     return date.toLocaleString();
   };
 

@@ -11,16 +11,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebaseConfig';
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  query, 
-  where, 
-  doc, 
-  updateDoc
-} from 'firebase/firestore';
+import { getInviteByCode } from '../services/invite.service';
+import { createConnection } from '../services/parent.service';
+import { updateRecord } from '../services/database.service';
 
 export default function ConnectParent() {
   const { currentUser } = useAuth();
@@ -38,62 +31,55 @@ export default function ConnectParent() {
 
     try {
       // Find the invite code
-      const inviteQuery = query(
-        collection(db, 'invite-codes'),
-        where('code', '==', inviteCode.toUpperCase()),
-        where('used', '==', false)
-      );
-      
-      const inviteSnapshot = await getDocs(inviteQuery);
-      
-      if (inviteSnapshot.empty) {
-        Alert.alert('Error', 'Invalid or expired invite code');
+      const inviteResult = await getInviteByCode(inviteCode.toUpperCase());
+
+      if (!inviteResult.success || inviteResult.data.length === 0) {
+        Alert.alert('Error', 'Invalid invite code');
         setLoading(false);
         return;
       }
 
-      const inviteDoc = inviteSnapshot.docs[0];
-      const inviteData = inviteDoc.data();
-      
+      // Filter unused invites
+      const validInvites = inviteResult.data.filter(invite => !invite.used);
+
+      if (validInvites.length === 0) {
+        Alert.alert('Error', 'This invite code has already been used');
+        setLoading(false);
+        return;
+      }
+
+      const inviteData = validInvites[0];
+
       // Check if code is expired
-      if (new Date(inviteData.expiresAt) < new Date()) {
+      if (inviteData.expiresAt && inviteData.expiresAt < Date.now()) {
         Alert.alert('Error', 'This invite code has expired');
         setLoading(false);
         return;
       }
 
-      // Check if already connected
-      const existingConnectionQuery = query(
-        collection(db, 'parent-child-connections'),
-        where('parentId', '==', inviteData.parentId),
-        where('childId', '==', currentUser.uid)
-      );
-      
-      const existingSnapshot = await getDocs(existingConnectionQuery);
-      
-      if (!existingSnapshot.empty) {
-        Alert.alert('Already Connected', 'You are already connected to this parent');
-        setLoading(false);
-        return;
-      }
-
       // Create parent-child connection
-      await addDoc(collection(db, 'parent-child-connections'), {
+      const connectionResult = await createConnection({
         parentId: inviteData.parentId,
         parentEmail: inviteData.parentEmail,
         parentName: inviteData.parentName,
         childId: currentUser.uid,
         childEmail: currentUser.email,
         childName: currentUser.displayName || currentUser.email,
-        connectedAt: new Date().toISOString(),
+        connectedAt: Date.now(),
         status: 'active'
       });
 
+      if (!connectionResult.success) {
+        Alert.alert('Error', 'Failed to create connection. Please try again.');
+        setLoading(false);
+        return;
+      }
+
       // Mark invite code as used
-      await updateDoc(doc(db, 'invite-codes', inviteDoc.id), {
+      await updateRecord(`invite-codes/${inviteData.id}`, {
         used: true,
         usedBy: currentUser.uid,
-        usedAt: new Date().toISOString()
+        usedAt: Date.now()
       });
 
       Alert.alert(
