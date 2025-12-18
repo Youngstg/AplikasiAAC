@@ -1,13 +1,14 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase } from 'firebase/database';
+import { getDatabase, enableLogging } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBHDmuLbRiCmfkwJ28aqA8_aOnaXDhq97U",
   authDomain: "aplikasiaac-4bbab.firebaseapp.com",
-  databaseURL: "https://aplikasiaac-4bbab-default-rtdb.firebaseio.com",
+  databaseURL: "https://aplikasiaac-4bbab-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "aplikasiaac-4bbab",
-  storageBucket: "aplikasiaac-4bbab.appspot.com",
+  storageBucket: "aplikasiaac-4bbab.firebasestorage.app",
   messagingSenderId: "798044982093",
   appId: "1:798044982093:web:7d116a24fe0afb63bfc504",
   measurementId: "G-6DDR16JM7M"
@@ -42,7 +43,14 @@ if (!auth) {
 
 export { auth };
 
-// Initialize Realtime Database
+// Initialize Realtime Database with offline persistence
 export const db = getDatabase(app);
+
+// Enable offline persistence (automatic in Realtime Database)
+// Data is automatically cached locally and synced when online
+// Enable debug logging in development (optional)
+if (__DEV__) {
+  enableLogging(true);
+}
 
 export default app;

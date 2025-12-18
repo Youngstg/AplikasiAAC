@@ -29,7 +29,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const { signin } = useAuth();
+  const { signin, currentUser, userRole } = useAuth();
   const router = useRouter();
   
   const fadeAnim = new Animated.Value(0);
@@ -49,6 +49,14 @@ export default function Login() {
       })
     ]).start();
   }, []);
+
+  // Redirect if user is already logged in
+  React.useEffect(() => {
+    if (currentUser && userRole) {
+      console.log('User already logged in, redirecting...');
+      router.replace('/');
+    }
+  }, [currentUser, userRole]);
 
   // Force portrait on login screen to avoid leftover landscape from child page
   React.useEffect(() => {

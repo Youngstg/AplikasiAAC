@@ -34,7 +34,7 @@ export default function Signup() {
   const [phoneFocused, setPhoneFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
-  const { signup } = useAuth();
+  const { signup, currentUser, userRole } = useAuth();
   const router = useRouter();
   
   const fadeAnim = new Animated.Value(0);
@@ -54,6 +54,14 @@ export default function Signup() {
       })
     ]).start();
   }, []);
+
+  // Redirect if user is already logged in
+  React.useEffect(() => {
+    if (currentUser && userRole) {
+      console.log('User already logged in, redirecting...');
+      router.replace('/');
+    }
+  }, [currentUser, userRole]);
 
   const handleSignup = async () => {
     if (!email || !name || !password || !confirmPassword) {

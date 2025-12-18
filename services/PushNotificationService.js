@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../firebaseConfig';
-import { doc, setDoc, serverTimestamp, collection, addDoc, getDoc } from 'firebase/firestore';
+import { ref, set, get, push } from 'firebase/database';
 
 // Konfigurasi notifikasi handler
 Notifications.setNotificationHandler({
@@ -113,7 +113,7 @@ class PushNotificationService {
     }
   }
 
-  // Simpan push token ke Firebase
+  // Simpan push token ke Firebase Realtime Database
   async savePushTokenToFirebase(token) {
     try {
       const userId = await AsyncStorage.getItem('currentUserId');
@@ -122,17 +122,17 @@ class PushNotificationService {
         return;
       }
 
-      const tokenDoc = doc(db, 'pushTokens', userId);
-      await setDoc(tokenDoc, {
+      const tokenRef = ref(db, `pushTokens/${userId}`);
+      await set(tokenRef, {
         token: token,
         userId: userId,
         platform: Platform.OS,
         deviceId: Device.osName,
-        updatedAt: serverTimestamp(),
+        updatedAt: Date.now(),
         active: true
-      }, { merge: true });
+      });
 
-      console.log('✅ Push token saved to Firebase');
+      console.log('✅ Push token saved to Firebase Realtime Database');
     } catch (error) {
       console.error('❌ Error saving push token to Firebase:', error);
     }
@@ -234,16 +234,16 @@ class PushNotificationService {
     }
   }
 
-  // Ambil push token dari Firebase
+  // Ambil push token dari Firebase Realtime Database
   async getPushTokenFromFirebase(userId) {
     try {
-      const tokenDoc = doc(db, 'pushTokens', userId);
-      const snapshot = await getDoc(tokenDoc);
-      
+      const tokenRef = ref(db, `pushTokens/${userId}`);
+      const snapshot = await get(tokenRef);
+
       if (snapshot.exists()) {
-        return snapshot.data();
+        return snapshot.val();
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error getting push token from Firebase:', error);
@@ -251,18 +251,20 @@ class PushNotificationService {
     }
   }
 
-  // Log notifikasi yang dikirim
+  // Log notifikasi yang dikirim ke Realtime Database
   async logNotificationSent(targetUserId, title, body, data) {
     try {
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      
-      await addDoc(collection(db, 'notificationLogs'), {
+
+      const logRef = push(ref(db, 'notificationLogs'));
+      await set(logRef, {
+        id: logRef.key,
         fromUserId: currentUserId,
         toUserId: targetUserId,
         title: title,
         body: body,
         data: data,
-        sentAt: serverTimestamp(),
+        sentAt: Date.now(),
         platform: Platform.OS,
         type: 'push_notification'
       });

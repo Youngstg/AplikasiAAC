@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import * as Battery from 'expo-battery';
 import { getCustomButtons, updateChildStatus } from '../services/child.service';
 import { sendNotificationToParent } from '../services/notification.service';
 import { saveLastMessage } from '../services/storage.service';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,6 +29,9 @@ export default function ChildDashboard() {
   const router = useRouter();
   const [selectedMessage, setSelectedMessage] = useState('');
   const [screenData, setScreenData] = useState(Dimensions.get('window'));
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastBatteryLevel, setLastBatteryLevel] = useState(0);
   const [customButtons, setCustomButtons] = useState([]);
   const [inputText, setInputText] = useState('');
   const [audioQueue, setAudioQueue] = useState([]);
@@ -60,37 +64,34 @@ export default function ChildDashboard() {
   const updateBatteryInfo = async () => {
     if (!currentUser?.uid) return;
 
-    try {
-      const level = await Battery.getBatteryLevelAsync();
-      const state = await Battery.getBatteryStateAsync();
-      const batteryPercent = Math.round(level * 100);
-
-      await updateChildStatus(currentUser.uid, {
-        childId: currentUser.uid,
-        childEmail: currentUser.email,
-        batteryLevel: batteryPercent,
-        batteryState: state,
-        status: 'active'
-      });
-    } catch (error) {
-      console.error('Error updating battery info:', error);
-    }
-
-    // Update every 30 seconds
-    const interval = setInterval(async () => {
+    const updateBattery = async () => {
       try {
         const level = await Battery.getBatteryLevelAsync();
         const state = await Battery.getBatteryStateAsync();
         const batteryPercent = Math.round(level * 100);
 
-        await updateChildStatus(currentUser.uid, {
-          batteryLevel: batteryPercent,
-          batteryState: state
-        });
+        // Only update if battery changed by 5% or more
+        if (Math.abs(lastBatteryLevel - batteryPercent) >= 5 || lastBatteryLevel === 0) {
+          await updateChildStatus(currentUser.uid, {
+            childId: currentUser.uid,
+            childEmail: currentUser.email,
+            batteryLevel: batteryPercent,
+            batteryState: state,
+            status: 'active',
+            lastActive: Date.now()
+          });
+          setLastBatteryLevel(batteryPercent);
+        }
       } catch (error) {
         console.error('Error updating battery info:', error);
       }
-    }, 30000);
+    };
+
+    // Initial update
+    await updateBattery();
+
+    // Update every 5 minutes instead of 30 seconds for battery saving
+    const interval = setInterval(updateBattery, 300000);
 
     return () => clearInterval(interval);
   };
@@ -98,13 +99,28 @@ export default function ChildDashboard() {
   const loadCustomButtons = async () => {
     if (!currentUser?.email) return;
 
+    setLoading(true);
+    setError(null);
     try {
       const result = await getCustomButtons(currentUser.email);
       if (result.success) {
         setCustomButtons(result.data);
+      } else {
+        setError(result.error || 'Failed to load custom buttons');
+        Alert.alert(
+          'Unable to Load Buttons',
+          'Please check your connection and try again.',
+          [
+            { text: 'Retry', onPress: loadCustomButtons },
+            { text: 'OK', style: 'cancel' }
+          ]
+        );
       }
     } catch (error) {
       console.error('Error loading custom buttons:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -129,7 +145,7 @@ export default function ChildDashboard() {
     );
   };
 
-  const handleCustomButtonPress = async (button) => {
+  const handleCustomButtonPress = useCallback(async (button) => {
     setSelectedMessage(button.text);
 
     // Add word to input text
@@ -140,9 +156,9 @@ export default function ChildDashboard() {
     if (button.audioBase64) {
       setAudioQueue(prev => [...prev, button.audioBase64]);
     }
-  };
+  }, [inputText]);
 
-  const sendNotification = async (message) => {
+  const sendNotification = useCallback(async (message) => {
     if (!currentUser?.email || !message.trim()) return;
 
     try {
@@ -155,9 +171,9 @@ export default function ChildDashboard() {
     } catch (error) {
       console.error('Error sending notification:', error);
     }
-  };
+  }, [currentUser]);
 
-  const handlePlayAudio = async () => {
+  const handlePlayAudio = useCallback(async () => {
     if (audioQueue.length === 0 && !inputText.trim()) {
       Alert.alert('No Content', 'Please add some words first');
       return;
@@ -195,16 +211,21 @@ export default function ChildDashboard() {
         Alert.alert('Error', 'Failed to play audio');
       }
     }
-  };
+  }, [audioQueue, inputText, currentUser, sendNotification]);
+
+  // Memoize custom buttons for current user
+  const filteredCustomButtons = useMemo(() => {
+    return customButtons.filter(btn => btn.childEmail === currentUser?.email);
+  }, [customButtons, currentUser?.email]);
 
   // Dynamic button styling based on orientation for grid layout
-  const getButtonStyle = (screen) => {
-    const isLandscape = screen.width > screen.height;
+  const getButtonStyle = useMemo(() => {
+    const isLandscape = screenData.width > screenData.height;
     const columns = isLandscape ? 6 : 3;  // 6 columns in landscape, 3 in portrait
     const padding = 20;
     const gap = 10;
-    const buttonSize = (screen.width - padding * 2 - gap * (columns - 1)) / columns;
-    
+    const buttonSize = (screenData.width - padding * 2 - gap * (columns - 1)) / columns;
+
     return {
       width: buttonSize,
       height: buttonSize,
@@ -222,11 +243,12 @@ export default function ChildDashboard() {
       borderColor: '#e0e0e0',
       position: 'relative',
     };
-  };
+  }, [screenData]);
 
 
   return (
     <SafeAreaView style={styles.container}>
+      <OfflineIndicator />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
 
         <View style={styles.topBar}>

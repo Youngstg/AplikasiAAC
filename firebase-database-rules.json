@@ -1,0 +1,301 @@
+{
+  "rules": {
+    // Users data - only readable/writable by the user themselves
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid",
+        ".validate": "newData.hasChildren(['email', 'name', 'role'])",
+        "email": {
+          ".validate": "newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString()"
+        },
+        "role": {
+          ".validate": "newData.val() === 'parent' || newData.val() === 'child'"
+        },
+        "phoneNumber": {
+          ".validate": "newData.isString() || newData.val() === null"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Parent-child connections
+    "parent-child-connections": {
+      ".read": "auth != null",
+      ".indexOn": ["parentEmail", "childEmail", "parentId", "childId"],
+      "$connectionId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['parentId', 'childId', 'parentEmail', 'childEmail', 'status'])",
+        "parentId": {
+          ".validate": "newData.isString()"
+        },
+        "childId": {
+          ".validate": "newData.isString()"
+        },
+        "parentEmail": {
+          ".validate": "newData.isString()"
+        },
+        "childEmail": {
+          ".validate": "newData.isString()"
+        },
+        "parentName": {
+          ".validate": "newData.isString()"
+        },
+        "childName": {
+          ".validate": "newData.isString()"
+        },
+        "parentPhone": {
+          ".validate": "newData.isString() || newData.val() === null"
+        },
+        "status": {
+          ".validate": "newData.val() === 'active' || newData.val() === 'inactive' || newData.val() === 'pending'"
+        },
+        "connectedAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Parent buttons (custom buttons created by parents)
+    "parent-buttons": {
+      ".read": "auth != null",
+      ".indexOn": ["parentEmail", "childEmail", "parentId", "childId"],
+      "$buttonId": {
+        ".write": "auth != null && (
+          data.child('parentId').val() === auth.uid ||
+          !data.exists()
+        )",
+        ".validate": "newData.hasChildren(['parentId', 'childEmail', 'text'])",
+        "parentId": {
+          ".validate": "newData.isString() && newData.val() === auth.uid"
+        },
+        "parentEmail": {
+          ".validate": "newData.isString()"
+        },
+        "childEmail": {
+          ".validate": "newData.isString()"
+        },
+        "childId": {
+          ".validate": "newData.isString()"
+        },
+        "text": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
+        },
+        "audioFile": {
+          ".validate": "newData.isString() || newData.val() === null"
+        },
+        "audioBase64": {
+          ".validate": "newData.isString() || newData.val() === null"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Notifications
+    "notifications": {
+      ".indexOn": ["toId", "toEmail", "fromId", "read"],
+      "$notificationId": {
+        ".read": "auth.uid === data.child('toId').val() || auth.uid === data.child('fromId').val()",
+        ".write": "auth.uid === newData.child('fromId').val() || auth.uid === data.child('toId').val()",
+        ".validate": "newData.hasChildren(['fromId', 'toId', 'message', 'type'])",
+        "fromId": {
+          ".validate": "newData.isString()"
+        },
+        "fromEmail": {
+          ".validate": "newData.isString()"
+        },
+        "fromName": {
+          ".validate": "newData.isString()"
+        },
+        "toId": {
+          ".validate": "newData.isString()"
+        },
+        "toEmail": {
+          ".validate": "newData.isString()"
+        },
+        "toName": {
+          ".validate": "newData.isString()"
+        },
+        "message": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "type": {
+          ".validate": "newData.isString()"
+        },
+        "read": {
+          ".validate": "newData.isBoolean()"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Invite codes
+    "invite-codes": {
+      ".read": "auth != null",
+      ".indexOn": ["code", "parentId", "used"],
+      "$inviteId": {
+        ".write": "auth != null && (
+          !data.exists() ||
+          data.child('parentId').val() === auth.uid
+        )",
+        ".validate": "newData.hasChildren(['code', 'parentId', 'parentEmail'])",
+        "code": {
+          ".validate": "newData.isString() && newData.val().length === 6"
+        },
+        "parentId": {
+          ".validate": "newData.isString()"
+        },
+        "parentEmail": {
+          ".validate": "newData.isString()"
+        },
+        "parentName": {
+          ".validate": "newData.isString()"
+        },
+        "used": {
+          ".validate": "newData.isBoolean()"
+        },
+        "usedBy": {
+          ".validate": "newData.isString() || newData.val() === null"
+        },
+        "usedAt": {
+          ".validate": "newData.isNumber() || newData.val() === null"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Child status (battery, last active, etc)
+    "child-status": {
+      "$childId": {
+        ".read": "auth != null",
+        ".write": "$childId === auth.uid",
+        "childId": {
+          ".validate": "newData.isString()"
+        },
+        "childEmail": {
+          ".validate": "newData.isString()"
+        },
+        "batteryLevel": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+        },
+        "batteryState": {
+          ".validate": "newData.isNumber()"
+        },
+        "status": {
+          ".validate": "newData.isString()"
+        },
+        "lastActive": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Favorites (saved phrases/words)
+    "favorites": {
+      ".read": "auth != null",
+      ".indexOn": ["childEmail"],
+      "$favoriteId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['childEmail', 'message'])",
+        "childEmail": {
+          ".validate": "newData.isString()"
+        },
+        "message": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Analytics (optional - for tracking usage)
+    "analytics": {
+      ".read": "auth != null",
+      "$eventId": {
+        ".write": "auth != null",
+        "eventName": {
+          ".validate": "newData.isString()"
+        },
+        "eventData": {
+          ".validate": "newData.exists()"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Push Notification Tokens
+    "pushTokens": {
+      "$userId": {
+        ".read": "auth.uid === $userId",
+        ".write": "auth.uid === $userId",
+        "token": {
+          ".validate": "newData.isString()"
+        },
+        "userId": {
+          ".validate": "newData.isString() && newData.val() === $userId"
+        },
+        "platform": {
+          ".validate": "newData.isString()"
+        },
+        "deviceId": {
+          ".validate": "newData.isString()"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "active": {
+          ".validate": "newData.isBoolean()"
+        }
+      }
+    },
+
+    // Notification Logs
+    "notificationLogs": {
+      ".read": "auth != null",
+      "$logId": {
+        ".write": "auth != null",
+        "id": {
+          ".validate": "newData.isString()"
+        },
+        "fromUserId": {
+          ".validate": "newData.isString()"
+        },
+        "toUserId": {
+          ".validate": "newData.isString()"
+        },
+        "title": {
+          ".validate": "newData.isString()"
+        },
+        "body": {
+          ".validate": "newData.isString()"
+        },
+        "sentAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "platform": {
+          ".validate": "newData.isString()"
+        },
+        "type": {
+          ".validate": "newData.isString()"
+        }
+      }
+    }
+  }
+}

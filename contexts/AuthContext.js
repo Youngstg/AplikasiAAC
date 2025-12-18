@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  sendPasswordResetEmail 
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { ref, get, set } from 'firebase/database';
 import { auth, db } from '../firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthContext = createContext();
 
@@ -25,16 +26,20 @@ export const AuthProvider = ({ children }) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      
-      // Save user data to Firestore
-      await setDoc(doc(db, 'users', user.uid), {
+
+      // Save user data to Realtime Database
+      const userRef = ref(db, `users/${user.uid}`);
+      await set(userRef, {
         email: user.email,
         name: userData.name,
         role: userData.role,
         phoneNumber: userData.phoneNumber || null,
-        createdAt: new Date().toISOString()
+        createdAt: Date.now()
       });
-      
+
+      // Save to AsyncStorage for offline access
+      await AsyncStorage.setItem('userRole', userData.role);
+
       return userCredential;
     } catch (error) {
       throw error;
@@ -55,6 +60,8 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await signOut(auth);
+      // Clear AsyncStorage on logout
+      await AsyncStorage.removeItem('userRole');
     } catch (error) {
       throw error;
     }
@@ -69,14 +76,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Get user data from Firestore
+  // Get user data from Realtime Database
   const getUserData = async (uid) => {
     try {
-      const docRef = doc(db, 'users', uid);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        return docSnap.data();
+      const userRef = ref(db, `users/${uid}`);
+      const snapshot = await get(userRef);
+
+      if (snapshot.exists()) {
+        return snapshot.val();
       }
       return null;
     } catch (error) {
@@ -86,15 +93,32 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    const initAuth = async () => {
+      // Try to get cached role from AsyncStorage first (for offline)
+      const cachedRole = await AsyncStorage.getItem('userRole');
+      if (cachedRole) {
+        setUserRole(cachedRole);
+      }
+    };
+
+    initAuth();
+
+    // Listen to auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user);
-        // Get user role from Firestore
+        // Get user role from Realtime Database
         const userData = await getUserData(user.uid);
-        setUserRole(userData?.role || null);
+        if (userData?.role) {
+          setUserRole(userData.role);
+          // Cache role for offline access
+          await AsyncStorage.setItem('userRole', userData.role);
+        }
       } else {
         setCurrentUser(null);
         setUserRole(null);
+        // Clear cache on logout
+        await AsyncStorage.removeItem('userRole');
       }
       setLoading(false);
     });
