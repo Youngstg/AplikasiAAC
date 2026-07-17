@@ -21,6 +21,7 @@ import { Audio } from 'expo-av';
 import * as Battery from 'expo-battery';
 import { getCustomButtons, updateChildStatus } from '../services/child.service';
 import { sendNotificationToParent } from '../services/notification.service';
+import { logCommunication } from '../services/history.service';
 import { saveLastMessage } from '../services/storage.service';
 import OfflineIndicator from '../components/OfflineIndicator';
 
@@ -190,8 +191,14 @@ export default function ChildDashboard() {
         currentUser.displayName || currentUser.email,
         message
       );
+      await logCommunication(
+        currentUser.email,
+        currentUser.uid,
+        currentUser.displayName || currentUser.email,
+        message
+      );
     } catch (error) {
-      console.error('Error sending notification:', error);
+      console.error('Error sending notification or logging history:', error);
     }
   }, [currentUser]);
 

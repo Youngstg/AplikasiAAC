@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, useWindowDimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function AuthLayout({ children }) {
+export default function AuthLayout({ children, hideCircles = false }) {
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width < 640;
 
@@ -14,7 +14,7 @@ export default function AuthLayout({ children }) {
       />
       
       {/* Decorative Circles - Hidden or repositioned on small screens */}
-      {!isSmallScreen && (
+      {!isSmallScreen && !hideCircles && (
         <>
           <View style={[styles.circle, styles.circle1]} />
           <View style={[styles.circle, styles.circle2]} />

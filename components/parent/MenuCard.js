@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-export default function MenuCard({ title, iconName, items, backgroundColor, onPress, height }) {
+export default function MenuCard({ title, iconName, items, backgroundColor, onPress }) {
   const { width } = useWindowDimensions();
   const isSmallDevice = width < 380;
   
@@ -15,7 +15,6 @@ export default function MenuCard({ title, iconName, items, backgroundColor, onPr
         styles.card, 
         { 
           backgroundColor,
-          height: height,
         }
       ]}
       onPress={onPress}
@@ -23,14 +22,14 @@ export default function MenuCard({ title, iconName, items, backgroundColor, onPr
     >
       <View style={styles.contentContainer}>
         <View style={styles.iconContainer}>
-          <Feather name={iconName} size={isSmallDevice ? 32 : 40} color="#1a1a1a" />
+          <Feather name={iconName} size={isSmallDevice ? 32 : 56} color="#1a1a1a" />
         </View>
         
-        <Text style={[styles.title, { fontSize: isSmallDevice ? 18 : 22 }]}>
+        <Text style={[styles.title, { fontSize: isSmallDevice ? 18 : 26 }]}>
           {title}
         </Text>
         
-        <Text style={[styles.subtitle, { fontSize: isSmallDevice ? 12 : 14 }]} numberOfLines={2}>
+        <Text style={[styles.subtitle, { fontSize: isSmallDevice ? 12 : 16 }]} numberOfLines={2}>
           {subtitleText}
         </Text>
       </View>
@@ -40,11 +39,12 @@ export default function MenuCard({ title, iconName, items, backgroundColor, onPr
 
 const styles = StyleSheet.create({
   card: {
-    width: '48%', 
-    borderRadius: 24,
+    width: '46%', 
+    maxWidth: 350, // Ditingkatkan agar kotak bisa membesar
+    aspectRatio: 1, // Memastikan kotak berbentuk persegi
+    borderRadius: 12,
     padding: 16,
-    marginBottom: '4%',
-    minHeight: 120,
+    margin: 8,
     justifyContent: 'center',
     alignItems: 'center',
     // Shadow
@@ -69,13 +69,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   title: {
     fontWeight: 'bold',

@@ -161,6 +161,9 @@ export const subscribeToQuery = (path, field, value, callback) => {
     } else {
       callback([]);
     }
+  }, (error) => {
+    console.error("subscribeToQuery error:", error);
+    callback([]); // Call callback so loading state finishes
   });
 
   return () => off(q);

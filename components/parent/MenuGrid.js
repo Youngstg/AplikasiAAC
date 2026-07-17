@@ -4,16 +4,9 @@ import MenuCard from './MenuCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MenuGrid({ menus }) {
-  const { height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   
-  // Calculate approximate card height to fit without scrolling.
-  // totalHeight - (safeArea + DeviceStatusCardHeight + paddings/margins)
-  // roughly: DeviceStatusCard ~100px, padding/margin ~60px
-  const availableHeight = height - insets.top - insets.bottom - 160; 
-  // We want 2 rows, so availableHeight / 2. Cap at 250px so it doesn't get huge on web/tablets.
-  const cardHeight = Math.max(160, Math.min(250, Math.floor(availableHeight / 2)));
-
+  // Menyesuaikan lebar grid agar proporsional
   return (
     <View style={styles.gridContainer}>
       {menus.map((menu, index) => (
@@ -24,7 +17,6 @@ export default function MenuGrid({ menus }) {
           items={menu.items}
           backgroundColor={menu.backgroundColor}
           onPress={menu.onPress}
-          height={cardHeight}
         />
       ))}
     </View>
@@ -35,7 +27,11 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    alignItems: 'center',
     width: '100%',
+    maxWidth: 800, // Ditingkatkan agar kotak bisa membesar tapi tetap 2x2
+    paddingVertical: 20,
+    alignSelf: 'center',
   },
 });
