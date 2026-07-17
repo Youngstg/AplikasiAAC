@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import { getRecord, updateRecord } from '../services/database.service';
 import { getParentChildConnections, createButton, updateButton } from '../services/parent.service';
+import AuthLayout from '../components/AuthLayout';
 
 export default function CreateButton() {
   const { currentUser } = useAuth();
@@ -49,7 +51,6 @@ export default function CreateButton() {
         setButtonText(params.text);
       }
       
-      // Find the child by email
       const childConnection = connectedChildren.find(child => 
         child.childEmail === params.childEmail
       );
@@ -57,7 +58,6 @@ export default function CreateButton() {
         setSelectedChild(childConnection);
       }
       
-      // Load the actual button data from Realtime Database to get image and audio
       const result = await getRecord(`parent-buttons/${params.buttonId}`);
       if (result.success && result.data) {
         const buttonData = result.data;
@@ -183,13 +183,9 @@ export default function CreateButton() {
     setLoading(true);
 
     try {
-      // Convert image to base64
       const imageBase64 = await convertToBase64(image.uri);
-
-      // Convert audio to base64
       const audioBase64 = await convertToBase64(audioUri);
 
-      // Create button data
       const buttonData = {
         text: buttonText,
         imageBase64,
@@ -202,9 +198,7 @@ export default function CreateButton() {
         createdAt: new Date().toISOString()
       };
 
-      // Save to parent-buttons collection
       if (editMode && editingButtonId) {
-        // Update existing button
         const result = await updateButton(editingButtonId, buttonData);
         if (result.success) {
           Alert.alert('Success', 'Button updated successfully!', [
@@ -214,7 +208,6 @@ export default function CreateButton() {
           Alert.alert('Error', 'Failed to update button');
         }
       } else {
-        // Create new button
         const result = await createButton(buttonData);
         if (result.success) {
           Alert.alert('Success', 'Button created successfully!', [
@@ -234,240 +227,349 @@ export default function CreateButton() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {editMode ? 'Edit Communication Button' : 'Create Communication Button'}
-          </Text>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.formContainer}>
-          <Text style={styles.label}>Select Child:</Text>
-          {connectedChildren.length === 0 ? (
-            <View style={styles.noChildrenContainer}>
-              <Text style={styles.noChildrenText}>No children connected</Text>
-              <Text style={styles.noChildrenSubtext}>
-                Go to "Manage Children" to connect with a child first
+    <AuthLayout>
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.8}
+            >
+              <Feather name="arrow-left" size={22} color="#333333" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>
+                {editMode ? 'Edit Word' : 'Add Word'}
               </Text>
             </View>
-          ) : (
-            <View style={styles.childrenContainer}>
-              {connectedChildren.map((child) => (
-                <TouchableOpacity
-                  key={child.id}
-                  style={[
-                    styles.childOption,
-                    selectedChild?.id === child.id && styles.childOptionSelected
-                  ]}
-                  onPress={() => setSelectedChild(child)}
-                >
-                  <Text style={[
-                    styles.childOptionText,
-                    selectedChild?.id === child.id && styles.childOptionTextSelected
-                  ]}>
-                    {child.childName}
+          </View>
+
+          <View style={styles.cardContainer}>
+            
+            <View style={styles.formSection}>
+              <View style={styles.sectionHeader}>
+                <Feather name="user" size={18} color="#3a7bd5" />
+                <Text style={styles.label}>Select Child</Text>
+              </View>
+              {connectedChildren.length === 0 ? (
+                <View style={styles.noChildrenContainer}>
+                  <Text style={styles.noChildrenText}>No children connected</Text>
+                  <Text style={styles.noChildrenSubtext}>
+                    Go to "Manage Children" to connect with a child first
                   </Text>
+                </View>
+              ) : (
+                <View style={styles.childrenContainer}>
+                  {connectedChildren.map((child) => (
+                    <TouchableOpacity
+                      key={child.id}
+                      style={[
+                        styles.childOption,
+                        selectedChild?.id === child.id && styles.childOptionSelected
+                      ]}
+                      onPress={() => setSelectedChild(child)}
+                    >
+                      <View style={styles.childOptionContent}>
+                        <Text style={[
+                          styles.childOptionText,
+                          selectedChild?.id === child.id && styles.childOptionTextSelected
+                        ]}>
+                          {child.childName}
+                        </Text>
+                        <Text style={[
+                          styles.childOptionEmail,
+                          selectedChild?.id === child.id && styles.childOptionEmailSelected
+                        ]}>
+                          {child.childEmail}
+                        </Text>
+                      </View>
+                      {selectedChild?.id === child.id && (
+                        <Feather name="check-circle" size={20} color="#3a7bd5" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.formSection}>
+              <View style={styles.sectionHeader}>
+                <Feather name="type" size={18} color="#3a7bd5" />
+                <Text style={styles.label}>Word Text</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="E.g. Apple, Drink, Play..."
+                placeholderTextColor="#999"
+                value={buttonText}
+                onChangeText={setButtonText}
+                maxLength={50}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.formSection}>
+              <View style={styles.sectionHeader}>
+                <Feather name="image" size={18} color="#3a7bd5" />
+                <Text style={styles.label}>Image</Text>
+              </View>
+              <TouchableOpacity style={styles.imageButton} onPress={pickImage} activeOpacity={0.8}>
+                {image ? (
+                  <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Feather name="camera" size={32} color="#aaa" />
+                    <Text style={styles.imageButtonText}>Tap to upload photo</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.formSection}>
+              <View style={styles.sectionHeader}>
+                <Feather name="mic" size={18} color="#3a7bd5" />
+                <Text style={styles.label}>Audio Recording</Text>
+              </View>
+              <View style={styles.audioContainer}>
+                <TouchableOpacity
+                  style={[styles.audioButton, isRecording && styles.recordingButton]}
+                  onPress={isRecording ? stopRecording : startRecording}
+                  activeOpacity={0.8}
+                >
+                  <Feather 
+                    name={isRecording ? "square" : "mic"} 
+                    size={20} 
+                    color={isRecording ? "#fff" : "#333"} 
+                  />
                   <Text style={[
-                    styles.childOptionEmail,
-                    selectedChild?.id === child.id && styles.childOptionEmailSelected
+                    styles.audioButtonText,
+                    isRecording && { color: '#fff' }
                   ]}>
-                    {child.childEmail}
+                    {isRecording ? 'Stop Recording' : 'Start Recording'}
                   </Text>
                 </TouchableOpacity>
-              ))}
+                
+                {audioUri && (
+                  <TouchableOpacity 
+                    style={styles.playButton} 
+                    onPress={playAudio}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="play" size={20} color="#fff" />
+                    <Text style={styles.playButtonText}>Play</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          )}
 
-          <Text style={styles.label}>Button Text:</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter button text"
-            value={buttonText}
-            onChangeText={setButtonText}
-            maxLength={50}
-          />
-
-          <Text style={styles.label}>Button Image:</Text>
-          <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-            {image ? (
-              <Image source={{ uri: image.uri }} style={styles.imagePreview} />
-            ) : (
-              <Text style={styles.imageButtonText}>Select Image</Text>
-            )}
-          </TouchableOpacity>
-
-          <Text style={styles.label}>Audio Recording:</Text>
-          <View style={styles.audioContainer}>
-            <TouchableOpacity
-              style={[styles.audioButton, isRecording && styles.recordingButton]}
-              onPress={isRecording ? stopRecording : startRecording}
-            >
-              <Text style={styles.audioButtonText}>
-                {isRecording ? 'Stop Recording' : 'Start Recording'}
-              </Text>
-            </TouchableOpacity>
-            
-            {audioUri && (
-              <TouchableOpacity style={styles.playButton} onPress={playAudio}>
-                <Text style={styles.playButtonText}>Play Audio</Text>
-              </TouchableOpacity>
-            )}
           </View>
 
           <TouchableOpacity
             style={[styles.saveButton, loading && styles.saveButtonDisabled]}
             onPress={saveButton}
             disabled={loading}
+            activeOpacity={0.9}
           >
-            <Text style={styles.saveButtonText}>
-              {loading ? 'Saving...' : 'Save Button'}
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Feather name="save" size={20} color="#fff" />
+                <Text style={styles.saveButtonText}>
+                  {editMode ? 'Update Word' : 'Save Word'}
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+        </ScrollView>
+      </SafeAreaView>
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'transparent',
   },
   scrollContainer: {
     flexGrow: 1,
     padding: 20,
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 30,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#764ba2',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  formContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
     elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#222',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+  cardContainer: {
+    backgroundColor: '#FDF6E3',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+  },
+  formSection: {
+    marginBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
   },
   label: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#333',
-    marginBottom: 8,
-    marginTop: 15,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5D6B5',
+    marginVertical: 20,
   },
   input: {
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: '#E5D6B5',
+    borderRadius: 16,
+    padding: 16,
     fontSize: 16,
-    backgroundColor: '#fafafa',
+    color: '#333',
   },
   imageButton: {
+    backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: '#E5D6B5',
     borderStyle: 'dashed',
-    borderRadius: 8,
-    height: 150,
+    borderRadius: 16,
+    height: 160,
+    overflow: 'hidden',
+  },
+  imagePlaceholder: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fafafa',
+    gap: 8,
   },
   imageButtonText: {
-    color: '#666',
-    fontSize: 16,
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '600',
   },
   imagePreview: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
+    resizeMode: 'cover',
   },
   audioContainer: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   audioButton: {
-    flex: 1,
-    backgroundColor: '#764ba2',
-    paddingVertical: 12,
-    borderRadius: 8,
+    flex: 2,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#E5D6B5',
+    paddingVertical: 14,
+    borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   recordingButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#FF6B6B',
+    borderColor: '#FF6B6B',
   },
   audioButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
+    color: '#333',
+    fontWeight: '700',
+    fontSize: 14,
   },
   playButton: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
+    flex: 1,
+    backgroundColor: '#4CAF50',
+    paddingVertical: 14,
+    borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    elevation: 2,
   },
   playButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 14,
   },
   saveButton: {
-    backgroundColor: '#764ba2',
-    paddingVertical: 15,
-    borderRadius: 8,
+    backgroundColor: '#3a7bd5',
+    paddingVertical: 18,
+    borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 30,
+    justifyContent: 'center',
+    gap: 10,
+    elevation: 4,
+    shadowColor: '#3a7bd5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   saveButtonDisabled: {
-    backgroundColor: '#ccc',
+    opacity: 0.7,
   },
   saveButtonText: {
-    color: 'white',
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 18,
   },
   noChildrenContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ffffff',
     padding: 20,
-    borderRadius: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5D6B5',
     alignItems: 'center',
-    marginBottom: 20,
   },
   noChildrenText: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   noChildrenSubtext: {
     fontSize: 14,
@@ -475,34 +577,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   childrenContainer: {
-    marginBottom: 20,
+    gap: 10,
   },
   childOption: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: '#E5D6B5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   childOptionSelected: {
-    backgroundColor: '#efe8fb',
-    borderColor: '#764ba2',
+    backgroundColor: '#e6f0fa',
+    borderColor: '#3a7bd5',
+  },
+  childOptionContent: {
+    flex: 1,
   },
   childOptionText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#333',
+    marginBottom: 2,
   },
   childOptionTextSelected: {
-    color: '#764ba2',
+    color: '#3a7bd5',
   },
   childOptionEmail: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
-    marginTop: 2,
   },
   childOptionEmailSelected: {
-    color: '#764ba2',
+    color: '#3a7bd5',
   },
 });

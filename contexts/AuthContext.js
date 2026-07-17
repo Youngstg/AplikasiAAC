@@ -62,6 +62,9 @@ export const AuthProvider = ({ children }) => {
       await signOut(auth);
       // Clear AsyncStorage on logout
       await AsyncStorage.removeItem('userRole');
+      // Immediately clear state to prevent race conditions during redirect
+      setCurrentUser(null);
+      setUserRole(null);
     } catch (error) {
       throw error;
     }

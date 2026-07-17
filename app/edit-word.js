@@ -7,11 +7,15 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  Image
+  Image,
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import { Feather } from '@expo/vector-icons';
 import { getParentButtons, deleteButton } from '../services/parent.service';
+import AuthLayout from '../components/AuthLayout';
 
 export default function EditWord() {
   const { currentUser } = useAuth();
@@ -45,7 +49,6 @@ export default function EditWord() {
   };
 
   const handleEditButton = (button) => {
-    // Navigate to create-button page with edit data
     router.push({
       pathname: '/create-button',
       params: { 
@@ -71,26 +74,16 @@ export default function EditWord() {
             try {
               console.log('=== DELETE ATTEMPT ===');
               console.log('Deleting button with ID:', button.id);
-              console.log('Button ID type:', typeof button.id);
-              console.log('Button ID length:', button.id?.length);
-              console.log('Full button object:', JSON.stringify(button, null, 2));
               
               if (!button.id || button.id.trim() === '') {
                 throw new Error('Button ID is missing or empty');
               }
               
-              // Create document reference
-              const docRef = doc(db, 'parent-buttons', button.id);
-              console.log('Document reference created:', docRef.path);
-
-              // Perform the delete
-              console.log('Attempting to delete button...');
               const result = await deleteButton(button.id);
 
               if (result.success) {
                 console.log('Delete operation completed successfully');
-                Alert.alert('Success', 'Button deleted successfully');
-                loadCustomButtons(); // Refresh the list
+                loadCustomButtons();
               } else {
                 console.error('Delete failed:', result.error);
                 Alert.alert('Error', `Failed to delete button: ${result.error}`);
@@ -99,8 +92,6 @@ export default function EditWord() {
             } catch (error) {
               console.error('=== DELETE ERROR ===');
               console.error('Error deleting button:', error);
-              console.error('Button ID that failed:', button.id);
-
               Alert.alert('Error', `Failed to delete button: ${error.message}`);
             }
           }
@@ -109,104 +100,135 @@ export default function EditWord() {
     );
   };
 
-  const handleGoBack = () => {
-    router.back();
-  };
-
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading buttons...</Text>
-        </View>
-      </SafeAreaView>
+      <AuthLayout>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3a7bd5" />
+            <Text style={styles.loadingText}>Loading words...</Text>
+          </View>
+        </SafeAreaView>
+      </AuthLayout>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Edit Words</Text>
-        </View>
-
-        {customButtons.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No buttons created yet</Text>
-            <TouchableOpacity 
-              style={styles.createButton}
-              onPress={() => router.push('/create-button')}
+    <AuthLayout>
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.8}
             >
-              <Text style={styles.createButtonText}>Create First Button</Text>
+              <Feather name="arrow-left" size={22} color="#333333" />
             </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Edit Words</Text>
+            </View>
           </View>
-        ) : (
-          <View style={styles.buttonsContainer}>
-            {customButtons.map((button) => (
-              <View key={button.id} style={styles.buttonCard}>
-                <View style={styles.buttonInfo}>
-                  {button.imageBase64 && (
-                    <Image source={{ uri: button.imageBase64 }} style={styles.buttonImage} />
-                  )}
-                  <View style={styles.buttonDetails}>
-                    <Text style={styles.buttonText}>{button.text}</Text>
-                    <Text style={styles.buttonChild}>For: {button.childName}</Text>
+
+          {customButtons.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconWrapper}>
+                <Feather name="grid" size={48} color="#ccc" />
+              </View>
+              <Text style={styles.emptyTitle}>No words created yet</Text>
+              <Text style={styles.emptyText}>Create your first communication button for your child.</Text>
+              <TouchableOpacity 
+                style={styles.createButton}
+                onPress={() => router.push('/create-button')}
+                activeOpacity={0.8}
+              >
+                <Feather name="plus" size={20} color="#fff" />
+                <Text style={styles.createButtonText}>Create New Word</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.buttonsContainer}>
+              {customButtons.map((button) => (
+                <View key={button.id} style={styles.buttonCard}>
+                  <View style={styles.buttonInfo}>
+                    {button.imageBase64 ? (
+                      <Image source={{ uri: button.imageBase64 }} style={styles.buttonImage} />
+                    ) : (
+                      <View style={styles.imagePlaceholder}>
+                        <Feather name="image" size={24} color="#aaa" />
+                      </View>
+                    )}
+                    <View style={styles.buttonDetails}>
+                      <Text style={styles.buttonText}>{button.text}</Text>
+                      <View style={styles.childPill}>
+                        <Feather name="user" size={12} color="#666" />
+                        <Text style={styles.buttonChild}>{button.childName}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.buttonActions}>
+                    <TouchableOpacity
+                      style={styles.editButton}
+                      onPress={() => handleEditButton(button)}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="edit-2" size={16} color="#3a7bd5" />
+                      <Text style={styles.editButtonText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteButton(button)}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="trash-2" size={16} color="#FF6B6B" />
+                    </TouchableOpacity>
                   </View>
                 </View>
-                <View style={styles.buttonActions}>
-                  <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => handleEditButton(button)}
-                  >
-                    <Text style={styles.editButtonText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteButton(button)}
-                  >
-                    <Text style={styles.deleteButtonText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+              ))}
+            </View>
+          )}
+
+        </ScrollView>
+      </SafeAreaView>
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'transparent',
   },
   scrollContainer: {
     flexGrow: 1,
     padding: 20,
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 24,
   },
   backButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginRight: 15,
-  },
-  backButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#222',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   loadingContainer: {
     flex: 1,
@@ -214,44 +236,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
+    marginTop: 12,
     fontSize: 16,
+    fontWeight: '600',
     color: '#666',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#FDF6E3',
+    borderRadius: 24,
+    padding: 32,
     alignItems: 'center',
-    padding: 40,
+    justifyContent: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+  },
+  emptyIconWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 15,
     color: '#666',
-    marginBottom: 20,
     textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
   },
   createButton: {
-    backgroundColor: '#764ba2',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
+    backgroundColor: '#3a7bd5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 8,
+    elevation: 2,
   },
   createButtonText: {
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
     fontSize: 16,
   },
   buttonsContainer: {
-    gap: 15,
+    gap: 16,
   },
   buttonCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    elevation: 3,
+    backgroundColor: '#FDF6E3',
+    borderRadius: 20,
+    padding: 16,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -262,48 +312,75 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   buttonImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    marginRight: 15,
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginRight: 16,
+  },
+  imagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: '#E5D6B5',
   },
   buttonDetails: {
     flex: 1,
+    justifyContent: 'center',
   },
   buttonText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#333',
-    marginBottom: 5,
+    marginBottom: 6,
+  },
+  childPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#E5D6B5',
   },
   buttonChild: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
+    fontWeight: '600',
   },
   buttonActions: {
     flexDirection: 'row',
     gap: 10,
   },
   editButton: {
-    backgroundColor: '#a8f0c0',
-    paddingHorizontal: 15,
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#3a7bd5',
   },
   editButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 14,
+    color: '#3a7bd5',
+    fontWeight: '700',
+    fontSize: 13,
   },
   deleteButton: {
-    backgroundColor: '#f0a8a8',
-    paddingHorizontal: 15,
+    backgroundColor: '#FFF0F0',
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
-  },
-  deleteButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 14,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

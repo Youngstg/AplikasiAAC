@@ -7,13 +7,16 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  TextInput
+  TextInput,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { getInviteByCode } from '../services/invite.service';
 import { createConnection } from '../services/parent.service';
 import { updateRecord } from '../services/database.service';
+import AuthLayout from '../components/AuthLayout';
+import { Feather } from '@expo/vector-icons';
 
 export default function ConnectParent() {
   const { currentUser } = useAuth();
@@ -99,70 +102,74 @@ export default function ConnectParent() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Connect with Parent</Text>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.formContainer}>
-          <Text style={styles.description}>
-            Enter the invite code that your parent shared with you to connect your accounts.
-          </Text>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Invite Code:</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter invite code (e.g., ABC123)"
-              value={inviteCode}
-              onChangeText={setInviteCode}
-              autoCapitalize="characters"
-              maxLength={6}
-            />
+    <AuthLayout>
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              style={styles.backButton} 
+              onPress={() => router.back()}
+              activeOpacity={0.8}
+            >
+              <Feather name="arrow-left" size={22} color="#333333" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Connect with Parent</Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.connectButton, loading && styles.connectButtonDisabled]}
-            onPress={connectWithParent}
-            disabled={loading}
-          >
-            <Text style={styles.connectButtonText}>
-              {loading ? 'Connecting...' : 'Connect with Parent'}
+          <View style={styles.formContainer}>
+            <Text style={styles.description}>
+              Enter the invite code that your parent shared with you to connect your accounts.
             </Text>
-          </TouchableOpacity>
 
-          <View style={styles.infoContainer}>
-            <Text style={styles.infoTitle}>How it works:</Text>
-            <Text style={styles.infoText}>
-              1. Your parent creates an invite code in their app
-            </Text>
-            <Text style={styles.infoText}>
-              2. They share the code with you
-            </Text>
-            <Text style={styles.infoText}>
-              3. Enter the code here to connect
-            </Text>
-            <Text style={styles.infoText}>
-              4. Your parent can now create custom communication buttons for you
-            </Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Invite Code:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter invite code (e.g., ABC123)"
+                value={inviteCode}
+                onChangeText={setInviteCode}
+                autoCapitalize="characters"
+                maxLength={6}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.connectButton, loading && styles.connectButtonDisabled]}
+              onPress={connectWithParent}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.connectButtonText}>
+                {loading ? 'Connecting...' : 'Connect with Parent'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.infoContainer}>
+              <Text style={styles.infoTitle}>How it works:</Text>
+              <Text style={styles.infoText}>
+                1. Your parent creates an invite code in their app
+              </Text>
+              <Text style={styles.infoText}>
+                2. They share the code with you
+              </Text>
+              <Text style={styles.infoText}>
+                3. Enter the code here to connect
+              </Text>
+              <Text style={styles.infoText}>
+                4. Your parent can now create custom communication buttons for you
+              </Text>
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'transparent',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -170,39 +177,42 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 30,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
   backButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
   },
-  backButtonText: {
-    color: 'white',
+  title: {
+    fontSize: 26,
     fontWeight: 'bold',
-    fontSize: 14,
+    color: '#222',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   formContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    elevation: 2,
+    backgroundColor: '#FDF6E3',
+    borderRadius: 24,
+    padding: 24,
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
   },
   description: {
     fontSize: 16,
-    color: '#666',
+    color: '#555',
     marginBottom: 30,
     lineHeight: 24,
   },
@@ -212,29 +222,33 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#444',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: '#E5D6B5',
+    borderRadius: 12,
     padding: 15,
     fontSize: 18,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#ffffff',
     textAlign: 'center',
     letterSpacing: 2,
     fontWeight: 'bold',
+    color: '#333',
+    height: 52,
   },
   connectButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#F5A623',
     paddingVertical: 15,
-    borderRadius: 8,
+    borderRadius: 9999,
     alignItems: 'center',
     marginBottom: 30,
+    height: 52,
+    justifyContent: 'center',
   },
   connectButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#E5D6B5',
   },
   connectButtonText: {
     color: 'white',
@@ -242,9 +256,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   infoContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     padding: 20,
-    borderRadius: 8,
+    borderRadius: 16,
   },
   infoTitle: {
     fontSize: 16,

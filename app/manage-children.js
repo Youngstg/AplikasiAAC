@@ -9,13 +9,14 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { queryRecords, deleteRecord } from '../services/database.service';
 import { createInviteCode as createInvite } from '../services/invite.service';
+import AuthLayout from '../components/AuthLayout';
 
 export default function ManageChildren() {
   const { currentUser, userRole } = useAuth();
@@ -206,7 +207,7 @@ export default function ManageChildren() {
           {!!secondaryText && <Text style={styles.connectionEmail}>{secondaryText}</Text>}
 
           <View style={styles.connectionMetaRow}>
-            <Feather name="clock" size={14} color="#9ba1b7" style={styles.connectionMetaIcon} />
+            <Feather name="clock" size={14} color="#666" style={styles.connectionMetaIcon} />
             <Text style={styles.connectionMetaText}>Connected {formatDate(item.connectedAt)}</Text>
           </View>
         </View>
@@ -216,7 +217,7 @@ export default function ManageChildren() {
           onPress={() => handleRemoveConnection(item.id)}
           activeOpacity={0.8}
         >
-          <Feather name={actionIcon} size={16} color="#3c2ba8" />
+          <Feather name={actionIcon} size={16} color="#FF6B6B" />
           <Text style={styles.connectionActionText}>{actionText}</Text>
         </TouchableOpacity>
       </View>
@@ -224,39 +225,31 @@ export default function ManageChildren() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.headerWrapper}>
-          <LinearGradient
-            colors={['#5f2eea', '#3a7bd5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.headerGradient}
-          >
-            <View style={styles.headerTopRow}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => router.back()}
-                activeOpacity={0.8}
-              >
-                <Feather name="arrow-left" size={20} color="#ffffff" />
-              </TouchableOpacity>
-
-              <View style={styles.titleGroup}>
-                <Text style={styles.headerTitle}>
-                  Manage {isParent ? 'Children' : 'Connections'}
-                </Text>
-                <Text style={styles.headerSubtitle}>
-                  {isParent
-                    ? 'Invite, review, and manage linked child accounts in one place.'
-                    : 'Stay connected with the parents who support your communication.'}
-                </Text>
-              </View>
+    <AuthLayout>
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          
+          {/* Pastel Theme Header */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.8}
+            >
+              <Feather name="arrow-left" size={22} color="#333333" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>
+                {isParent ? 'Children' : 'Connections'}
+              </Text>
             </View>
+          </View>
 
-            <View style={styles.headerMetaRow}>
+          {/* Connected Children Count */}
+          <View style={styles.cardContainer}>
+            <View style={styles.metaRow}>
               <View style={styles.metaPill}>
-                <Feather name="users" size={16} color="#ffffff" style={styles.metaPillIcon} />
+                <Feather name="users" size={18} color="#333" style={styles.metaPillIcon} />
                 <Text style={styles.metaPillText}>
                   {connections.length} linked {getConnectionLabel()}
                 </Text>
@@ -269,196 +262,184 @@ export default function ManageChildren() {
                 activeOpacity={0.8}
               >
                 {fetchingConnections ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                  <ActivityIndicator size="small" color="#333" />
                 ) : (
                   <>
-                    <Feather name="refresh-cw" size={16} color="#ffffff" />
+                    <Feather name="refresh-cw" size={16} color="#333" />
                     <Text style={styles.refreshButtonText}>Refresh</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
-          </LinearGradient>
-        </View>
-
-        {isParent ? (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIcon}>
-                <Feather name="key" size={20} color="#3c2ba8" />
-              </View>
-              <View>
-                <Text style={styles.cardTitle}>Create an Invite Code</Text>
-                <Text style={styles.cardSubtitle}>
-                  Generate a secure code and share it with your child. Codes expire after 24 hours.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.codeWrapper}>
-              <Text style={styles.codeText}>{inviteCode}</Text>
-
-              <TouchableOpacity
-                style={styles.codeSmallButton}
-                onPress={generateInviteCode}
-                activeOpacity={0.8}
-              >
-                <Feather name="refresh-cw" size={18} color="#3c2ba8" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.codeActions}>
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={generateInviteCode}
-                activeOpacity={0.85}
-                disabled={loadingInvite}
-              >
-                <Feather name="shuffle" size={16} color="#3c2ba8" />
-                <Text style={styles.secondaryButtonText}>Regenerate</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.primaryButton, loadingInvite && styles.primaryButtonDisabled]}
-                onPress={createInviteCode}
-                activeOpacity={0.85}
-                disabled={loadingInvite}
-              >
-                <Feather name="share-2" size={16} color="#ffffff" />
-                <Text style={styles.primaryButtonText}>
-                  {loadingInvite ? 'Saving...' : 'Save & Share'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.cardHint}>
-              Tip: share the code right away so it does not expire. If you need a fresh one, tap
-              Regenerate.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIcon}>
-                <Feather name="link-2" size={20} color="#3c2ba8" />
-              </View>
-              <View>
-                <Text style={styles.cardTitle}>Connect with a Parent</Text>
-                <Text style={styles.cardSubtitle}>
-                  Use the invite code shared by your parent to stay synced with their updates.
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.cardHint}>
-              Ask your parent for their latest invite code. Each code can only be used once and
-              expires after 24 hours.
-            </Text>
-
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => router.push('/connect-parent')}
-              activeOpacity={0.85}
-            >
-              <Feather name="log-in" size={16} color="#ffffff" />
-              <Text style={styles.primaryButtonText}>Enter Invite Code</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardIcon}>
-              <Feather name={isParent ? 'user-check' : 'shield'} size={20} color="#3c2ba8" />
-            </View>
-            <View>
-              <Text style={styles.cardTitle}>
-                {isParent ? 'Linked Children' : 'Connected Parents'}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {isParent
-                  ? 'Keep track of who can access and use the communication buttons you create.'
-                  : 'These parents can create and update communication buttons for you.'}
-              </Text>
-            </View>
           </View>
 
-          {fetchingConnections ? (
-            <View style={styles.emptyState}>
-              <ActivityIndicator size="small" color="#3c2ba8" />
-              <Text style={[styles.emptyStateText, styles.emptyStateLoading]}>
-                Loading connections...
-              </Text>
-            </View>
-          ) : connections.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Feather name="user-x" size={40} color="#c1c5d7" style={styles.emptyStateIcon} />
-              <Text style={styles.emptyStateTitle}>No connections yet</Text>
-              <Text style={styles.emptyStateText}>
-                {isParent
-                  ? 'Generate and share a new invite code to link with your child.'
-                  : 'Use an invite code from your parent to connect your account.'}
-              </Text>
+          {isParent ? (
+            <View style={styles.cardContainer}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardIcon}>
+                  <Feather name="key" size={24} color="#3a7bd5" />
+                </View>
+                <View style={styles.cardHeaderTextContainer}>
+                  <Text style={styles.cardTitle}>Create an Invite Code</Text>
+                  <Text style={styles.cardSubtitle}>
+                    Generate a secure code and share it with your child. Codes expire after 24 hours.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.codeWrapper}>
+                <Text style={styles.codeText}>{inviteCode}</Text>
+                <TouchableOpacity
+                  style={styles.codeSmallButton}
+                  onPress={generateInviteCode}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="refresh-cw" size={20} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.codeActions}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={generateInviteCode}
+                  activeOpacity={0.85}
+                  disabled={loadingInvite}
+                >
+                  <Feather name="shuffle" size={18} color="#333" />
+                  <Text style={styles.secondaryButtonText}>Regenerate</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.primaryButton, loadingInvite && styles.primaryButtonDisabled]}
+                  onPress={createInviteCode}
+                  activeOpacity={0.85}
+                  disabled={loadingInvite}
+                >
+                  <Feather name="share-2" size={18} color="#ffffff" />
+                  <Text style={styles.primaryButtonText}>
+                    {loadingInvite ? 'Saving...' : 'Save & Share'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
-            <View style={styles.connectionList}>
-              {connections.map((item) => renderConnectionCard(item))}
+            <View style={styles.cardContainer}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardIcon}>
+                  <Feather name="link-2" size={24} color="#3a7bd5" />
+                </View>
+                <View style={styles.cardHeaderTextContainer}>
+                  <Text style={styles.cardTitle}>Connect with a Parent</Text>
+                  <Text style={styles.cardSubtitle}>
+                    Use the invite code shared by your parent to stay synced with their updates.
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => router.push('/connect-parent')}
+                activeOpacity={0.85}
+              >
+                <Feather name="log-in" size={18} color="#ffffff" />
+                <Text style={styles.primaryButtonText}>Enter Invite Code</Text>
+              </TouchableOpacity>
             </View>
           )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardIcon}>
+                <Feather name={isParent ? 'user-check' : 'shield'} size={24} color="#3a7bd5" />
+              </View>
+              <View style={styles.cardHeaderTextContainer}>
+                <Text style={styles.cardTitle}>
+                  {isParent ? 'Linked Children' : 'Connected Parents'}
+                </Text>
+                <Text style={styles.cardSubtitle}>
+                  {isParent
+                    ? 'Keep track of who can access the buttons you create.'
+                    : 'These parents can update communication buttons for you.'}
+                </Text>
+              </View>
+            </View>
+
+            {fetchingConnections ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="small" color="#3a7bd5" />
+                <Text style={[styles.emptyStateText, styles.emptyStateLoading]}>
+                  Loading connections...
+                </Text>
+              </View>
+            ) : connections.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Feather name="user-x" size={48} color="#ccc" style={styles.emptyStateIcon} />
+                <Text style={styles.emptyStateTitle}>No connections yet</Text>
+                <Text style={styles.emptyStateText}>
+                  {isParent
+                    ? 'Generate and share a new invite code to link with your child.'
+                    : 'Use an invite code from your parent to connect your account.'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.connectionList}>
+                {connections.map((item) => renderConnectionCard(item))}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f4f8',
+    backgroundColor: 'transparent',
   },
   scrollContainer: {
     flexGrow: 1,
+    padding: 20,
     paddingBottom: 40,
   },
-  headerWrapper: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    marginBottom: 12,
-  },
-  headerGradient: {
-    borderRadius: 28,
-    padding: 24,
-    paddingTop: 28,
-  },
-  headerTopRow: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 18,
+    alignItems: 'center',
     marginBottom: 24,
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    alignItems: 'center',
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
   },
-  titleGroup: {
-    flex: 1,
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#222',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 8,
+  cardContainer: {
+    backgroundColor: '#FDF6E3',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
   },
-  headerSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: 'rgba(255, 255, 255, 0.85)',
-  },
-  headerMetaRow: {
+  metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -466,18 +447,14 @@ const styles = StyleSheet.create({
   metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   metaPillIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   metaPillText: {
-    fontSize: 14,
-    color: '#ffffff',
-    fontWeight: '600',
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '700',
   },
   refreshButton: {
     flexDirection: 'row',
@@ -485,8 +462,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.45)',
+    borderColor: '#E5D6B5',
     gap: 8,
   },
   refreshButtonDisabled: {
@@ -494,163 +472,156 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: {
     fontSize: 14,
-    color: '#ffffff',
+    color: '#333',
     fontWeight: '600',
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 20,
-    marginBottom: 18,
-    borderRadius: 22,
-    padding: 22,
-    elevation: 4,
-    shadowColor: '#1d1f2f',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 14,
-    marginBottom: 18,
+    gap: 16,
+    marginBottom: 20,
   },
   cardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#f2f4ff',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  cardHeaderTextContainer: {
+    flex: 1,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#1f2741',
-    marginBottom: 4,
+    color: '#333',
+    marginBottom: 6,
   },
   cardSubtitle: {
     fontSize: 14,
-    lineHeight: 20,
-    color: '#66708a',
+    lineHeight: 22,
+    color: '#666',
   },
   codeWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f5f6ff',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    marginBottom: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E5D6B5',
   },
   codeText: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: '800',
-    color: '#3c2ba8',
-    letterSpacing: 6,
+    color: '#333',
+    letterSpacing: 8,
   },
   codeSmallButton: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#dfe2f5',
+    borderRadius: 22,
+    backgroundColor: '#f5f5f5',
     alignItems: 'center',
     justifyContent: 'center',
   },
   codeActions: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 14,
   },
   secondaryButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 16,
-    backgroundColor: '#eef0ff',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#E5D6B5',
     gap: 8,
   },
   secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3c2ba8',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333',
   },
   primaryButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 16,
-    backgroundColor: '#3c2ba8',
+    backgroundColor: '#4CAF50',
     gap: 8,
+    elevation: 2,
   },
   primaryButtonDisabled: {
     opacity: 0.7,
   },
   primaryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#ffffff',
-  },
-  cardHint: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#8a90ab',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 32,
     paddingHorizontal: 16,
   },
   emptyStateIcon: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   emptyStateTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#1f2741',
-    marginBottom: 6,
+    color: '#333',
+    marginBottom: 8,
   },
   emptyStateText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#6d748d',
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#666',
     textAlign: 'center',
   },
   emptyStateLoading: {
-    marginTop: 12,
+    marginTop: 16,
   },
   connectionList: {
-    gap: 14,
+    gap: 16,
   },
   connectionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 18,
-    backgroundColor: '#f8f9ff',
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#e6e9f8',
+    borderColor: '#E5D6B5',
   },
   connectionAvatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    backgroundColor: '#e4e7ff',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E5D6B5',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#3c2ba8',
+    color: '#333',
   },
   connectionBody: {
     flex: 1,
@@ -659,13 +630,13 @@ const styles = StyleSheet.create({
   connectionName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1f2741',
+    color: '#333',
     marginBottom: 4,
   },
   connectionEmail: {
     fontSize: 13,
-    color: '#6d748d',
-    marginBottom: 10,
+    color: '#666',
+    marginBottom: 8,
   },
   connectionMetaRow: {
     flexDirection: 'row',
@@ -676,27 +647,20 @@ const styles = StyleSheet.create({
   },
   connectionMetaText: {
     fontSize: 12,
-    color: '#8a90ab',
+    color: '#888',
   },
   connectionAction: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: '#eae7ff',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#FFF0F0',
   },
   connectionActionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3c2ba8',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FF6B6B',
   },
 });
-
-
-
-
-
-
-

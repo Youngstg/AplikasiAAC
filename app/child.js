@@ -12,7 +12,9 @@ import {
   Image,
   TextInput
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Audio } from 'expo-av';
@@ -28,7 +30,27 @@ export default function ChildDashboard() {
   const { logout, currentUser } = useAuth();
   const router = useRouter();
   const [selectedMessage, setSelectedMessage] = useState('');
-  const [screenData, setScreenData] = useState(Dimensions.get('window'));
+  const [screenData, setScreenData] = useState({
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  });
+  const [gridColumns, setGridColumns] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadGridSettings = async () => {
+        try {
+          const savedColumns = await AsyncStorage.getItem('childGridColumns');
+          if (savedColumns) {
+            setGridColumns(parseInt(savedColumns, 10));
+          }
+        } catch (e) {
+          console.error('Failed to load grid settings', e);
+        }
+      };
+      loadGridSettings();
+    }, [])
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastBatteryLevel, setLastBatteryLevel] = useState(0);
@@ -221,10 +243,14 @@ export default function ChildDashboard() {
   // Dynamic button styling based on orientation for grid layout
   const getButtonStyle = useMemo(() => {
     const isLandscape = screenData.width > screenData.height;
-    const columns = isLandscape ? 6 : 3;  // 6 columns in landscape, 3 in portrait
+    // Use user-defined columns, or default to 6 for landscape and 3 for portrait
+    const columns = gridColumns || (isLandscape ? 6 : 3);
     const padding = 20;
     const gap = 10;
-    const buttonSize = (screenData.width - padding * 2 - gap * (columns - 1)) / columns;
+    // Account for potential scrollbar width on Web to prevent early wrapping
+    const scrollbarBuffer = Platform.OS === 'web' ? 24 : 0;
+    const availableWidth = screenData.width - (padding * 2) - scrollbarBuffer;
+    const buttonSize = Math.floor((availableWidth - gap * (columns - 1)) / columns);
 
     return {
       width: buttonSize,
@@ -243,7 +269,7 @@ export default function ChildDashboard() {
       borderColor: '#e0e0e0',
       position: 'relative',
     };
-  }, [screenData]);
+  }, [screenData, gridColumns]);
 
 
   return (
@@ -266,7 +292,7 @@ export default function ChildDashboard() {
             style={styles.playButtonTop}
             onPress={handlePlayAudio}
           >
-            <Text style={styles.playButtonTopText}>Play</Text>
+            <Feather name="play-circle" size={24} color="black" />
           </TouchableOpacity>
         </View>
 
@@ -278,13 +304,13 @@ export default function ChildDashboard() {
               setAudioQueue([]);
             }}
           >
-            <Text style={styles.clearButtonText}>Clear</Text>
+            <Feather name="trash-2" size={20} color="white" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.settingsButton}
             onPress={() => router.push('/child-settings')}
           >
-            <Text style={styles.settingsButtonText}>⚙️</Text>
+            <Feather name="settings" size={20} color="white" />
           </TouchableOpacity>
         </View>
 
@@ -294,7 +320,7 @@ export default function ChildDashboard() {
             {customButtons.map((button) => (
               <TouchableOpacity
                 key={button.id}
-                style={getButtonStyle(screenData)}
+                style={getButtonStyle}
                 onPress={() => handleCustomButtonPress(button)}
               >
                 {button.imageBase64 && (
@@ -308,7 +334,7 @@ export default function ChildDashboard() {
             {Array.from({ length: Math.max(0, (screenData.width > screenData.height ? 18 : 12) - customButtons.length) }).map((_, index) => (
               <View
                 key={`placeholder-${index}`}
-                style={[getButtonStyle(screenData), styles.emptyButton]}
+                style={[getButtonStyle, styles.emptyButton]}
               />
             ))}
           </View>
@@ -484,6 +510,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 25,
     minWidth: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   clearButtonText: {
     color: 'white',
