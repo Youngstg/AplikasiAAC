@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { Text, StyleSheet, Animated, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { Feather } from '@expo/vector-icons';
 
@@ -26,32 +26,36 @@ export default function OfflineIndicator() {
   if (isConnected) return null;
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <Feather name="wifi-off" size={16} color="#fff" />
-      <Text style={styles.text}>Offline - Data will sync when connected</Text>
+    <Animated.View
+      style={[styles.container, { opacity: fadeAnim }]}
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+    >
+      <Feather name="wifi-off" size={15} color="#17324D" />
+      <Text style={styles.text}>Offline · Data akan disinkronkan saat terhubung</Text>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#f39c12',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    alignSelf: 'center',
+    backgroundColor: '#FFCF5C',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    borderRadius: 999,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000,
-    elevation: 5,
+    zIndex: 10,
+    elevation: 2,
   },
   text: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+    color: '#17324D',
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 7,
+    fontFamily: Platform.OS === 'web' ? 'Trebuchet MS' : undefined,
   },
 });

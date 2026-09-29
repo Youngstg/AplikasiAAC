@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   Alert,
-  SafeAreaView,
   Platform,
   Text,
   TouchableOpacity,
@@ -12,6 +11,7 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
+
 import { useAuth } from '../contexts/AuthContext';
 import { Feather } from '@expo/vector-icons';
 import NotificationIndicator from '../components/NotificationIndicator';
@@ -27,7 +27,7 @@ export default function ParentDashboard() {
   const { logout, currentUser } = useAuth();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const isLargeScreen = width >= 768; // Tablet or Web
+  const isLargeScreen = width >= 768;
   
   const [currentNotification, setCurrentNotification] = useState(null);
   const [showNotificationIndicator, setShowNotificationIndicator] = useState(false);
@@ -35,7 +35,7 @@ export default function ParentDashboard() {
   // Device Status State
   const [batteryLevel, setBatteryLevel] = useState(null);
   const [childId, setChildId] = useState(null);
-  const [childName, setChildName] = useState('Child Tablet');
+  const [childName, setChildName] = useState('Tablet anak');
   const [deviceActive, setDeviceActive] = useState(false);
 
   // History State
@@ -52,7 +52,7 @@ export default function ParentDashboard() {
           const activeChild = result.data.find(conn => conn.status === 'active');
           if (activeChild) {
             setChildId(activeChild.childId);
-            setChildName(activeChild.childName || 'Child Tablet');
+            setChildName(activeChild.childName || 'Tablet anak');
             setDeviceActive(true);
           }
         }
@@ -96,8 +96,8 @@ export default function ParentDashboard() {
               `💬 ${latestNotification.fromName || 'Anak'}`,
               latestNotification.message,
               [
-                { text: 'Mark as Read', onPress: () => markAsRead(latestNotification.id) },
-                { text: 'OK' }
+                { text: 'Tandai sudah dibaca', onPress: () => markAsRead(latestNotification.id) },
+                { text: 'Tutup' }
               ]
             );
           }
@@ -130,20 +130,20 @@ export default function ParentDashboard() {
 
   const handleLogout = async () => {
     if (Platform.OS === 'web') {
-      const confirmLogout = window.confirm('Are you sure you want to logout?');
+      const confirmLogout = window.confirm('Yakin ingin keluar dari akun?');
       if (confirmLogout) {
         try {
           await logout();
           router.replace('/login');
         } catch (error) {
-          alert('Failed to logout');
+          alert('Gagal keluar. Silakan coba lagi.');
         }
       }
     } else {
-      Alert.alert('Logout', 'Are you sure you want to logout?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: async () => {
-            try { await logout(); router.replace('/login'); } catch (error) { Alert.alert('Error', 'Failed to logout'); }
+      Alert.alert('Keluar akun', 'Yakin ingin keluar dari akun?', [
+        { text: 'Batal', style: 'cancel' },
+        { text: 'Keluar', style: 'destructive', onPress: async () => {
+            try { await logout(); router.replace('/login'); } catch (error) { Alert.alert('Gagal', 'Tidak dapat keluar. Silakan coba lagi.'); }
           }
         }
       ]);
@@ -152,31 +152,31 @@ export default function ParentDashboard() {
 
   const menuItems = [
     {
-      title: 'Manage Children',
+      title: 'Kelola anak',
       iconName: 'users',
-      backgroundColor: '#c9b1f0',
-      items: ['Invite', 'Approve', 'Link'],
+      backgroundColor: '#DDF3F1',
+      items: ['Undang', 'Setujui', 'Hubungkan'],
       onPress: () => router.push('/manage-children')
     },
     {
-      title: 'Add Word',
+      title: 'Tambah kata',
       iconName: 'plus-circle',
-      backgroundColor: '#a8d0f0',
-      items: ['Word', 'Image', 'Sound'],
+      backgroundColor: '#D9EEF5',
+      items: ['Kata', 'Gambar', 'Suara'],
       onPress: () => router.push('/create-button')
     },
     {
-      title: 'Edit Word',
-      iconName: 'edit',
-      backgroundColor: '#a8f0c0',
-      items: ['Modify', 'Existing', 'Words'],
+      title: 'Ubah kata',
+      iconName: 'edit-3',
+      backgroundColor: '#E4F3E9',
+      items: ['Perbarui', 'Kata tersimpan'],
       onPress: () => router.push('/edit-word')
     },
     {
-      title: 'Logout',
+      title: 'Keluar akun',
       iconName: 'log-out',
-      backgroundColor: '#f0a8a8',
-      items: ['Sign Out', 'Account'],
+      backgroundColor: '#FFF0D0',
+      items: ['Akhiri sesi', 'Akun aman'],
       onPress: handleLogout
     }
   ];
@@ -192,11 +192,11 @@ export default function ParentDashboard() {
       
       let dateString = '';
       if (date.toDateString() === today.toDateString()) {
-        dateString = 'Today';
+        dateString = 'Hari ini';
       } else if (date.toDateString() === yesterday.toDateString()) {
-        dateString = 'Yesterday';
+        dateString = 'Kemarin';
       } else {
-        dateString = date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+        dateString = date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' });
       }
       if (!groups[dateString]) groups[dateString] = [];
       groups[dateString].push(log);
@@ -205,23 +205,40 @@ export default function ParentDashboard() {
   };
 
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   };
 
   const groupedLogs = groupLogsByDate(historyLogs);
 
   const renderHistoryPanel = () => (
     <View style={styles.historyContainer}>
-      <Text style={styles.historyTitle}>Recent Activity</Text>
+      <View style={styles.sectionHeadingRow}>
+        <View>
+          <Text style={styles.sectionEyebrow}>AKTIVITAS AAC</Text>
+          <Text style={styles.historyTitle}>Riwayat terbaru</Text>
+        </View>
+        <View style={styles.countBadge}>
+          <Text style={styles.countBadgeText}>{historyLogs.length}</Text>
+        </View>
+      </View>
       {loadingHistory ? (
         <ActivityIndicator size="large" color="#3a7bd5" style={{ marginTop: 40 }} />
       ) : historyLogs.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Feather name="clock" size={40} color="#ccc" />
-          <Text style={styles.emptyText}>No history yet.</Text>
+          <View style={styles.emptyIcon}>
+            <Feather name="clock" size={25} color="#176B87" />
+          </View>
+          <Text style={styles.emptyTitle}>Belum ada aktivitas</Text>
+          <Text style={styles.emptyText}>Pesan yang digunakan anak akan tampil di sini.</Text>
         </View>
       ) : (
-        <ScrollView style={styles.historyScroll} contentContainerStyle={{ paddingBottom: 20 }}>
+        <ScrollView
+          style={styles.historyScroll}
+          contentContainerStyle={styles.historyScrollContent}
+          scrollEnabled={isLargeScreen}
+          nestedScrollEnabled={isLargeScreen}
+          showsVerticalScrollIndicator={false}
+        >
           {Object.keys(groupedLogs).map((dateGroup, index) => (
             <View key={index} style={styles.dateGroup}>
               <Text style={styles.dateHeader}>{dateGroup}</Text>
@@ -229,7 +246,7 @@ export default function ParentDashboard() {
                 {groupedLogs[dateGroup].map((log) => (
                   <View key={log.id} style={styles.logCard}>
                     <View style={styles.logIconWrapper}>
-                      <Feather name="message-square" size={18} color="#3a7bd5" />
+                      <Feather name="message-square" size={18} color="#176B87" />
                     </View>
                     <View style={styles.logContent}>
                       <Text style={styles.logMessage}>"{log.message}"</Text>
@@ -248,163 +265,131 @@ export default function ParentDashboard() {
     </View>
   );
 
+  const renderPageHeader = () => (
+    <View style={styles.pageHeader}>
+      <View style={styles.brandMark} accessibilityElementsHidden>
+        <Feather name="message-circle" size={22} color="#FFFFFF" />
+      </View>
+      <View style={styles.pageHeaderText}>
+        <Text style={styles.welcomeLabel}>RUANG PENDAMPING</Text>
+        <Text style={styles.pageTitle}>Halo, Orang Tua</Text>
+        <Text style={styles.pageSubtitle}>Pantau perangkat dan siapkan kosakata anak dengan mudah.</Text>
+      </View>
+    </View>
+  );
+
+  const renderMenuPanel = () => (
+    <View style={styles.menuPanelContent}>
+      <View style={styles.menuHeading}>
+        <Text style={styles.sectionEyebrow}>AKSES CEPAT</Text>
+        <Text style={styles.menuTitle}>Apa yang ingin Anda lakukan?</Text>
+        <Text style={styles.menuSubtitle}>Kelola kebutuhan komunikasi anak dari satu tempat.</Text>
+      </View>
+      <MenuGrid menus={menuItems} />
+    </View>
+  );
+
   return (
     <AuthLayout hideCircles={true}>
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <NotificationIndicator
           visible={showNotificationIndicator}
-        title={currentNotification?.title}
-        message={currentNotification?.message}
-        onPress={() => {
-          if (currentNotification?.id) markAsRead(currentNotification.id);
-          setShowNotificationIndicator(false);
-        }}
-        onClose={() => setShowNotificationIndicator(false)}
-      />
+          title={currentNotification?.title}
+          message={currentNotification?.message}
+          onPress={() => {
+            if (currentNotification?.id) markAsRead(currentNotification.id);
+            setShowNotificationIndicator(false);
+          }}
+          onClose={() => setShowNotificationIndicator(false)}
+        />
 
-      <View style={[styles.mainLayout, isLargeScreen && styles.mainLayoutLarge]}>
-        
-        {/* Left Panel: Status & History */}
-        <View style={[styles.leftPanel, isLargeScreen && styles.leftPanelLarge]}>
-          <DeviceStatusCard 
-            deviceName={childName}
-            isActive={deviceActive}
-            batteryLevel={batteryLevel}
-          />
-          {renderHistoryPanel()}
-        </View>
-
-        {/* Right Panel: Menu Grid */}
-        <View style={[styles.rightPanel, isLargeScreen && styles.rightPanelLarge]}>
-          <ScrollView contentContainerStyle={styles.rightScrollContent}>
-            <MenuGrid menus={menuItems} />
+        {isLargeScreen ? (
+          <View style={styles.tabletLayout}>
+            <View style={styles.leftPanel}>
+              {renderPageHeader()}
+              <DeviceStatusCard deviceName={childName} isActive={deviceActive} batteryLevel={batteryLevel} />
+              {renderHistoryPanel()}
+            </View>
+            <View style={styles.rightPanel}>
+              <ScrollView
+                contentContainerStyle={styles.rightScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {renderMenuPanel()}
+              </ScrollView>
+            </View>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.mobileScroll}
+            contentContainerStyle={styles.mobileContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {renderPageHeader()}
+            <DeviceStatusCard deviceName={childName} isActive={deviceActive} batteryLevel={batteryLevel} />
+            {renderMenuPanel()}
+            {renderHistoryPanel()}
           </ScrollView>
-        </View>
-
+        )}
       </View>
-    </SafeAreaView>
     </AuthLayout>
   );
 }
 
+const bodyFont = Platform.OS === 'ios' ? 'Trebuchet MS' : 'sans-serif';
+const displayFont = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  mainLayout: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  mainLayoutLarge: {
-    flexDirection: 'row', // Split screen on large devices
-  },
-  leftPanel: {
-    padding: 16,
-    flex: 1,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  leftPanelLarge: {
-    flex: 1, // Takes 1 part of screen
-    borderRightWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: '#eee',
-    height: '100%',
-  },
-  rightPanel: {
-    flex: 1,
-  },
-  rightPanelLarge: {
-    flex: 1.2, // Slightly wider for the grid on large screens
-    height: '100%',
-  },
-  rightScrollContent: {
-    padding: 16,
-    flexGrow: 1,
-    justifyContent: 'center', // Centers grid vertically on large screens
-  },
+  container: { flex: 1, backgroundColor: '#EDF8F7' },
+  tabletLayout: { flex: 1, flexDirection: 'row', padding: 20, gap: 20 },
+  leftPanel: { flex: 0.9, minWidth: 330, maxWidth: 520 },
+  rightPanel: { flex: 1.25, minWidth: 0, backgroundColor: '#FFFFFF', borderRadius: 28, overflow: 'hidden' },
+  rightScrollContent: { flexGrow: 1, justifyContent: 'center', padding: 28 },
+  mobileScroll: { flex: 1 },
+  mobileContent: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 32, gap: 18 },
+  pageHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
+  brandMark: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#176B87', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  pageHeaderText: { flex: 1 },
+  welcomeLabel: { color: '#176B87', fontFamily: bodyFont, fontSize: 10, fontWeight: '800', letterSpacing: 1.3, marginBottom: 4 },
+  pageTitle: { color: '#17324D', fontFamily: displayFont, fontSize: 29, lineHeight: 34, fontWeight: '700' },
+  pageSubtitle: { color: '#557086', fontFamily: bodyFont, fontSize: 13, lineHeight: 19, marginTop: 5, maxWidth: 430 },
+  menuPanelContent: { width: '100%' },
+  menuHeading: { marginBottom: 20 },
+  sectionEyebrow: { color: '#176B87', fontFamily: bodyFont, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 4 },
+  menuTitle: { color: '#17324D', fontFamily: displayFont, fontSize: 25, lineHeight: 31, fontWeight: '700' },
+  menuSubtitle: { color: '#557086', fontFamily: bodyFont, fontSize: 13, lineHeight: 19, marginTop: 5 },
   historyContainer: {
     flex: 1,
-    marginTop: 16,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    // shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    minHeight: 230,
+    marginTop: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#DCEBEA',
+    shadowColor: '#17324D',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
     elevation: 2,
   },
-  historyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-  historyScroll: {
-    flex: 1,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    marginTop: 20,
-  },
-  emptyText: {
-    marginTop: 12,
-    color: '#888',
-    fontSize: 15,
-  },
-  dateGroup: {
-    marginBottom: 16,
-  },
-  dateHeader: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#666',
-    marginBottom: 12,
-    marginLeft: 4,
-  },
-  logsList: {
-    gap: 12,
-  },
-  logCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FDF6E3',
-    borderRadius: 12,
-    padding: 12,
-  },
-  logIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#E5D6B5',
-  },
-  logContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  logMessage: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 4,
-  },
-  logMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  logTime: {
-    fontSize: 12,
-    color: '#888',
-  },
+  sectionHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  historyTitle: { fontSize: 21, lineHeight: 26, fontWeight: '700', color: '#17324D', fontFamily: displayFont },
+  countBadge: { minWidth: 32, height: 32, paddingHorizontal: 9, borderRadius: 16, backgroundColor: '#FFCF5C', alignItems: 'center', justifyContent: 'center' },
+  countBadgeText: { color: '#17324D', fontSize: 12, fontWeight: '800' },
+  historyScroll: { flex: 1 },
+  historyScrollContent: { paddingBottom: 4 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 30, paddingHorizontal: 16 },
+  emptyIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: '#EDF8F7', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  emptyTitle: { color: '#17324D', fontFamily: bodyFont, fontSize: 15, fontWeight: '700' },
+  emptyText: { marginTop: 5, color: '#557086', fontFamily: bodyFont, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  dateGroup: { marginBottom: 17 },
+  dateHeader: { fontFamily: bodyFont, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, color: '#557086', marginBottom: 9, textTransform: 'uppercase' },
+  logsList: { gap: 9 },
+  logCard: { flexDirection: 'row', backgroundColor: '#EDF8F7', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: '#DCEBEA' },
+  logIconWrapper: { width: 38, height: 38, borderRadius: 13, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginRight: 11 },
+  logContent: { flex: 1, justifyContent: 'center' },
+  logMessage: { fontFamily: bodyFont, fontSize: 14, lineHeight: 19, fontWeight: '700', color: '#17324D', marginBottom: 5 },
+  logMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  logTime: { fontFamily: bodyFont, fontSize: 11, color: '#557086' },
 });

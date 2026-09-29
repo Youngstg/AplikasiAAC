@@ -1,78 +1,86 @@
 import React from 'react';
-import { View, StyleSheet, useWindowDimensions, Platform } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const COLORS = {
+  ink: '#17324D',
+  ocean: '#176B87',
+  aqua: '#64CCC5',
+  sun: '#FFCF5C',
+  mist: '#EDF8F7',
+  white: '#FFFFFF',
+};
 
 export default function AuthLayout({ children, hideCircles = false }) {
   const { width, height } = useWindowDimensions();
-  const isSmallScreen = width < 640;
+  const isCompact = width < 640 || height < 700;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#FFF4D6', '#F5D08C']}
-        style={StyleSheet.absoluteFillObject}
-      />
-      
-      {/* Decorative Circles - Hidden or repositioned on small screens */}
-      {!isSmallScreen && !hideCircles && (
-        <>
-          <View style={[styles.circle, styles.circle1]} />
-          <View style={[styles.circle, styles.circle2]} />
-          <View style={[styles.circle, styles.circle3]} />
-          <View style={[styles.circle, styles.circle4]} />
-          <View style={[styles.circle, styles.circle5]} />
-        </>
+    <LinearGradient
+      colors={[COLORS.mist, COLORS.white]}
+      locations={[0, 0.82]}
+      style={styles.container}
+    >
+      {!hideCircles && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+          <View style={[styles.shape, styles.aquaShape, isCompact && styles.aquaShapeCompact]} />
+          <View style={[styles.shape, styles.sunShape, isCompact && styles.sunShapeCompact]} />
+          {!isCompact && <View style={[styles.shape, styles.oceanShape]} />}
+        </View>
       )}
-
-      {children}
-    </View>
+      <SafeAreaView style={styles.safeArea}>{children}</SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative',
-    overflow: 'hidden', // to cut off circles at edges
+    backgroundColor: COLORS.mist,
+    overflow: 'hidden',
   },
-  circle: {
+  safeArea: {
+    flex: 1,
+  },
+  shape: {
     position: 'absolute',
-    borderRadius: 9999,
-    opacity: 0.6,
+    borderRadius: 999,
   },
-  circle1: {
-    width: 400,
-    height: 400,
-    backgroundColor: '#FFD1DC', // Pastel Pink
-    top: -100,
-    left: -150,
+  aquaShape: {
+    width: 340,
+    height: 340,
+    top: -170,
+    right: -80,
+    backgroundColor: COLORS.aqua,
+    opacity: 0.28,
   },
-  circle2: {
-    width: 300,
-    height: 300,
-    backgroundColor: '#E6E6FA', // Lavender
-    top: 200,
-    right: -100,
+  aquaShapeCompact: {
+    width: 210,
+    height: 210,
+    top: -120,
+    right: -80,
   },
-  circle3: {
-    width: 250,
-    height: 250,
-    backgroundColor: '#ADD8E6', // Light Blue
-    bottom: -50,
-    left: 50,
+  sunShape: {
+    width: 190,
+    height: 190,
+    bottom: -78,
+    left: -50,
+    backgroundColor: COLORS.sun,
+    opacity: 0.48,
   },
-  circle4: {
-    width: 350,
-    height: 350,
-    backgroundColor: '#98FB98', // Pale Green
-    bottom: -150,
-    right: 150,
+  sunShapeCompact: {
+    width: 130,
+    height: 130,
+    bottom: -70,
+    left: -38,
   },
-  circle5: {
-    width: 200,
-    height: 200,
-    backgroundColor: '#FFA07A', // Light Salmon
-    top: -50,
-    right: 200,
+  oceanShape: {
+    width: 120,
+    height: 120,
+    top: '42%',
+    left: -72,
+    backgroundColor: COLORS.ocean,
+    opacity: 0.12,
   },
 });

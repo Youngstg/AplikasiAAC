@@ -1,23 +1,24 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Animated,
-  Dimensions
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useAuth } from '../contexts/AuthContext';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import AuthLayout from '../components/AuthLayout';
+import { useAuth } from '../contexts/AuthContext';
 
-const { width } = Dimensions.get('window');
+const COLORS = { ink: '#17324D', ocean: '#176B87', aqua: '#64CCC5', sun: '#FFCF5C', mist: '#EDF8F7', white: '#FFFFFF' };
+const BODY_FONT = 'Trebuchet MS';
+const DISPLAY_FONT = 'Georgia';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -25,243 +26,118 @@ export default function ForgotPassword() {
   const [emailFocused, setEmailFocused] = useState(false);
   const { resetPassword } = useAuth();
   const router = useRouter();
-  
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(50);
+  const { width, height } = useWindowDimensions();
+  const isNarrow = width < 640;
+  const isShort = height < 650;
 
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      })
-    ]).start();
-  }, []);
+  const notify = (title, message, actions) => {
+    if (Platform.OS === 'web') {
+      alert(`${title}: ${message}`);
+      if (actions?.[0]?.onPress) actions[0].onPress();
+    } else Alert.alert(title, message, actions);
+  };
 
   const handleResetPassword = async () => {
     if (!email) {
-      Alert.alert('Error', 'Please enter your email address');
+      notify('Email diperlukan', 'Silakan masukkan alamat email Anda.');
       return;
     }
-
     setLoading(true);
     try {
       await resetPassword(email);
-      Alert.alert(
-        'Success',
-        'Password reset email has been sent to your email address. Please check your inbox.',
-        [
-          { text: 'OK', onPress: () => router.push('/login') }
-        ]
+      notify(
+        'Email terkirim',
+        'Tautan untuk mengatur ulang kata sandi telah dikirim. Silakan periksa kotak masuk Anda.',
+        [{ text: 'Kembali ke masuk', onPress: () => router.push('/login') }]
       );
     } catch (error) {
-      console.error('Reset password error:', error);
-      Alert.alert('Error', error.message);
+      let message = 'Tautan belum dapat dikirim. Silakan coba lagi.';
+      if (error.code === 'auth/invalid-email') message = 'Format email tidak valid.';
+      else if (error.code === 'auth/user-not-found') message = 'Akun dengan email tersebut tidak ditemukan.';
+      else if (error.code === 'auth/network-request-failed') message = 'Gagal terhubung ke server. Periksa koneksi internet Anda.';
+      else if (error.message) message = error.message;
+      notify('Gagal mengirim email', message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.headerContainer}>
-            <View style={styles.logoContainer}>
-              <Ionicons name="lock-closed" size={60} color="#fff" />
+    <AuthLayout>
+      <KeyboardAvoidingView style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={[styles.scrollContainer, isShort && styles.scrollContainerShort]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+          <View style={[styles.card, isNarrow && styles.cardNarrow, isShort && styles.cardShort]}>
+            <View style={[styles.iconContainer, isShort && styles.iconContainerShort]} accessible accessibilityLabel="Ikon keamanan akun">
+              <Ionicons name="key-outline" size={isShort ? 30 : 38} color={COLORS.ink} />
+              <View style={styles.iconAccent} />
             </View>
-            <Text style={styles.appTitle}>Reset Password</Text>
-            <Text style={styles.appSubtitle}>Regain access to your account</Text>
-          </View>
+            <Text style={styles.eyebrow}>PULIHKAN AKSES</Text>
+            <Text style={[styles.title, isShort && styles.titleShort]}>Lupa kata sandi?</Text>
+            <Text style={styles.subtitle}>Masukkan email akun Anda. Kami akan mengirimkan tautan aman untuk membuat kata sandi baru.</Text>
 
-          <View style={styles.formContainer}>
-            <Text style={styles.title}>Forgot Password?</Text>
-            <Text style={styles.subtitle}>
-              No worries! Enter your email address and we'll send you a link to reset your password
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email Address</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  emailFocused && styles.inputFocused
-                ]}
-                placeholder="Enter your email address"
-                placeholderTextColor="#999"
+                style={[styles.input, emailFocused && styles.inputFocused]}
+                placeholder="nama@email.com"
+                placeholderTextColor="#708496"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
                 onFocus={() => setEmailFocused(true)}
                 onBlur={() => setEmailFocused(false)}
+                onSubmitEditing={handleResetPassword}
+                returnKeyType="send"
+                accessibilityLabel="Alamat email untuk pemulihan kata sandi"
               />
             </View>
 
-            <TouchableOpacity
-              style={[styles.resetButton, loading && styles.buttonDisabled]}
-              onPress={handleResetPassword}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Sending...' : 'Send Reset Email'}
-              </Text>
+            <TouchableOpacity style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={handleResetPassword} disabled={loading} accessibilityRole="button" accessibilityLabel={loading ? 'Sedang mengirim tautan' : 'Kirim tautan pemulihan'}>
+              <Text style={styles.primaryButtonText}>{loading ? 'Sedang mengirim…' : 'Kirim tautan pemulihan'}</Text>
+              {!loading && <Ionicons name="paper-plane-outline" size={19} color={COLORS.ink} />}
             </TouchableOpacity>
 
-            <View style={styles.infoContainer}>
-              <Text style={styles.infoText}>
-                💡 You'll receive an email with instructions on how to reset your password
-              </Text>
+            <View style={styles.infoBox}>
+              <Ionicons name="mail-unread-outline" size={22} color={COLORS.ocean} />
+              <Text style={styles.infoText}>Periksa folder spam jika email belum terlihat setelah beberapa menit.</Text>
             </View>
 
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => router.push('/login')}
-            >
-              <Text style={styles.backButtonText}>← Back to Sign In</Text>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.push('/login')} accessibilityRole="link" accessibilityLabel="Kembali ke halaman masuk">
+              <Ionicons name="arrow-back" size={19} color={COLORS.ocean} />
+              <Text style={styles.backButtonText}>Kembali ke halaman masuk</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#667eea',
-  },
-  keyboardContainer: {
-    flex: 1,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  headerContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  appTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  appSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-  },
-  formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 15,
-    padding: 25,
-    marginHorizontal: 30,
-    maxWidth: 400,
-    alignSelf: 'center',
-    width: '100%',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 30,
-    color: '#666',
-    lineHeight: 22,
-  },
-  inputContainer: {
-    marginBottom: 25,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#333',
-    backgroundColor: '#fff',
-  },
-  inputFocused: {
-    borderColor: '#667eea',
-    borderWidth: 2,
-  },
-  resetButton: {
-    backgroundColor: '#667eea',
-    borderRadius: 8,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 25,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  infoContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 25,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  backButton: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#667eea',
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#667eea',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  keyboardContainer: { flex: 1 },
+  scrollContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 36 },
+  scrollContainerShort: { justifyContent: 'flex-start', paddingVertical: 14 },
+  card: { width: '100%', maxWidth: 520, backgroundColor: COLORS.white, borderRadius: 28, padding: 38, alignItems: 'center', borderWidth: 1, borderColor: '#D8EEEC', shadowColor: COLORS.ink, shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.11, shadowRadius: 28, elevation: 8 },
+  cardNarrow: { padding: 24, borderRadius: 22 },
+  cardShort: { paddingVertical: 20 },
+  iconContainer: { width: 88, height: 88, borderRadius: 28, backgroundColor: COLORS.aqua, justifyContent: 'center', alignItems: 'center', marginBottom: 20, transform: [{ rotate: '-3deg' }] },
+  iconContainerShort: { width: 64, height: 64, borderRadius: 20, marginBottom: 12 },
+  iconAccent: { position: 'absolute', width: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.sun, top: -5, right: -4, borderWidth: 3, borderColor: COLORS.white },
+  eyebrow: { fontFamily: BODY_FONT, fontSize: 12, fontWeight: '700', letterSpacing: 1.8, color: COLORS.ocean, marginBottom: 6 },
+  title: { fontFamily: DISPLAY_FONT, fontSize: 34, lineHeight: 40, fontWeight: '700', color: COLORS.ink, textAlign: 'center' },
+  titleShort: { fontSize: 28, lineHeight: 33 },
+  subtitle: { maxWidth: 410, fontFamily: BODY_FONT, fontSize: 15, lineHeight: 23, color: '#50677A', textAlign: 'center', marginTop: 10, marginBottom: 26 },
+  fieldGroup: { width: '100%', marginBottom: 18 },
+  label: { fontFamily: BODY_FONT, fontSize: 15, fontWeight: '700', color: COLORS.ink, marginBottom: 8 },
+  input: { width: '100%', minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: '#B9D9D6', backgroundColor: '#FAFDFC', paddingHorizontal: 16, fontFamily: BODY_FONT, fontSize: 16, color: COLORS.ink },
+  inputFocused: { borderColor: COLORS.ocean, backgroundColor: COLORS.white },
+  primaryButton: { width: '100%', minHeight: 54, borderRadius: 16, backgroundColor: COLORS.sun, flexDirection: 'row', gap: 10, justifyContent: 'center', alignItems: 'center', shadowColor: '#B98916', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.22, shadowRadius: 9, elevation: 4 },
+  primaryButtonText: { fontFamily: BODY_FONT, fontSize: 17, fontWeight: '700', color: COLORS.ink },
+  buttonDisabled: { opacity: 0.62 },
+  infoBox: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.mist, borderRadius: 14, padding: 14, marginTop: 22 },
+  infoText: { flex: 1, fontFamily: BODY_FONT, fontSize: 13, lineHeight: 19, color: '#425E70' },
+  backButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingHorizontal: 12 },
+  backButtonText: { fontFamily: BODY_FONT, fontSize: 15, fontWeight: '700', color: COLORS.ocean },
 });

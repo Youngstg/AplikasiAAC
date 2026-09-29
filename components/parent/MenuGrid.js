@@ -1,23 +1,29 @@
 import React from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import MenuCard from './MenuCard';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MenuGrid({ menus }) {
-  const { width } = useWindowDimensions();
-  
-  // Menyesuaikan lebar grid agar proporsional
+  const rows = [];
+  for (let index = 0; index < menus.length; index += 2) {
+    rows.push(menus.slice(index, index + 2));
+  }
+
   return (
     <View style={styles.gridContainer}>
-      {menus.map((menu, index) => (
-        <MenuCard
-          key={index}
-          title={menu.title}
-          iconName={menu.iconName}
-          items={menu.items}
-          backgroundColor={menu.backgroundColor}
-          onPress={menu.onPress}
-        />
+      {rows.map((row, rowIndex) => (
+        <View key={`row-${rowIndex}`} style={styles.row}>
+          {row.map((menu) => (
+            <MenuCard
+              key={menu.title}
+              title={menu.title}
+              iconName={menu.iconName}
+              items={menu.items}
+              backgroundColor={menu.backgroundColor}
+              onPress={menu.onPress}
+            />
+          ))}
+          {row.length === 1 && <View style={styles.placeholder} />}
+        </View>
       ))}
     </View>
   );
@@ -25,13 +31,15 @@ export default function MenuGrid({ menus }) {
 
 const styles = StyleSheet.create({
   gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
     width: '100%',
-    maxWidth: 800, // Ditingkatkan agar kotak bisa membesar tapi tetap 2x2
-    paddingVertical: 20,
+    maxWidth: 680,
     alignSelf: 'center',
+    gap: 12,
   },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'stretch',
+  },
+  placeholder: { flex: 1 },
 });

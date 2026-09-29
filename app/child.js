@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  SafeAreaView,
   ScrollView,
   Dimensions,
   Platform,
@@ -13,6 +12,7 @@ import {
   TextInput
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,11 +25,10 @@ import { logCommunication } from '../services/history.service';
 import { saveLastMessage } from '../services/storage.service';
 import OfflineIndicator from '../components/OfflineIndicator';
 
-const { width, height } = Dimensions.get('window');
-
 export default function ChildDashboard() {
   const { logout, currentUser } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedMessage, setSelectedMessage] = useState('');
   const [screenData, setScreenData] = useState({
     width: Dimensions.get('window').width,
@@ -251,84 +250,110 @@ export default function ChildDashboard() {
   const getButtonStyle = useMemo(() => {
     const isLandscape = screenData.width > screenData.height;
     // Use user-defined columns, or default to 6 for landscape and 3 for portrait
-    const columns = gridColumns || (isLandscape ? 6 : 3);
-    const padding = 20;
-    const gap = 10;
-    // Account for potential scrollbar width on Web to prevent early wrapping
+    const requestedColumns = gridColumns || (isLandscape ? 5 : 3);
+    const padding = screenData.width < 700 ? 12 : 20;
+    const gap = screenData.width < 700 ? 8 : 12;
     const scrollbarBuffer = Platform.OS === 'web' ? 24 : 0;
-    const availableWidth = screenData.width - (padding * 2) - scrollbarBuffer;
-    const buttonSize = Math.floor((availableWidth - gap * (columns - 1)) / columns);
+    const availableWidth = screenData.width - insets.left - insets.right - (padding * 2) - scrollbarBuffer;
+    const minimumTileSize = screenData.width < 700 ? 88 : 104;
+    const maximumColumns = Math.max(2, Math.floor((availableWidth + gap) / (minimumTileSize + gap)));
+    const columns = Math.min(requestedColumns, maximumColumns);
+    const buttonSize = Math.min(180, Math.floor((availableWidth - gap * (columns - 1)) / columns));
 
     return {
       width: buttonSize,
       height: buttonSize,
-      borderRadius: 15,
+      borderRadius: 18,
       justifyContent: 'center',
       alignItems: 'center',
-      padding: 8,
-      elevation: 3,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-      backgroundColor: 'white',
+      padding: 10,
+      elevation: 2,
+      shadowColor: '#17324D',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      backgroundColor: '#FFFFFF',
       borderWidth: 2,
-      borderColor: '#e0e0e0',
+      borderColor: '#CFE8E6',
       position: 'relative',
     };
-  }, [screenData, gridColumns]);
+  }, [screenData, gridColumns, insets.left, insets.right]);
 
 
   return (
-    <SafeAreaView style={styles.container}>
-      <OfflineIndicator />
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+      <View style={styles.headerShell}>
+        <View style={styles.brandRow}>
+          <View>
+            <Text style={styles.eyebrow}>PAPAN KOMUNIKASI</Text>
+            <Text style={styles.headerTitle}>Susun pesanmu</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => router.push('/child-settings')}
+            accessibilityRole="button"
+            accessibilityLabel="Buka pengaturan papan komunikasi"
+          >
+            <Feather name="settings" size={21} color="#17324D" />
+            <Text style={styles.settingsButtonText}>Pengaturan</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.topBar}>
           <View style={styles.sentenceContainer}>
             <TextInput
               style={styles.sentenceField}
               value={inputText}
               onChangeText={setInputText}
-              placeholder="Tap buttons to add words..."
+              placeholder="Ketuk gambar untuk menyusun pesan..."
+              placeholderTextColor="#6B8192"
               multiline
               editable={false}
+              accessibilityLabel="Pesan yang sedang disusun"
             />
           </View>
           <TouchableOpacity
             style={styles.playButtonTop}
             onPress={handlePlayAudio}
+            accessibilityRole="button"
+            accessibilityLabel="Ucapkan pesan"
+            accessibilityHint="Memutar suara dan mengirim pesan kepada orang tua"
           >
-            <Feather name="play-circle" size={24} color="black" />
+            <Feather name="volume-2" size={23} color="#FFFFFF" />
+            <Text style={styles.playButtonTopText}>Ucapkan</Text>
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.controlsContainer}>
           <TouchableOpacity
             style={styles.clearButton}
             onPress={() => {
               setInputText('');
               setAudioQueue([]);
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Hapus seluruh pesan"
           >
-            <Feather name="trash-2" size={20} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => router.push('/child-settings')}
-          >
-            <Feather name="settings" size={20} color="white" />
+            <Feather name="trash-2" size={20} color="#C84C4C" />
           </TouchableOpacity>
         </View>
+      </View>
 
-
+      <OfflineIndicator />
+      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
         <View style={styles.communicationContainer}>
+          {customButtons.length === 0 && !loading ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}><Feather name="message-circle" size={28} color="#176B87" /></View>
+              <Text style={styles.emptyTitle}>Belum ada kosakata</Text>
+              <Text style={styles.emptyText}>Minta orang tua menambahkan gambar dan kata untuk mulai berkomunikasi.</Text>
+            </View>
+          ) : (
           <View style={styles.buttonsGrid}>
             {customButtons.map((button) => (
               <TouchableOpacity
                 key={button.id}
                 style={getButtonStyle}
                 onPress={() => handleCustomButtonPress(button)}
+                activeOpacity={0.72}
+                accessibilityRole="button"
+                accessibilityLabel={`Tambahkan kata ${button.text}`}
               >
                 {button.imageBase64 && (
                   <Image source={{ uri: button.imageBase64 }} style={styles.buttonImage} />
@@ -337,14 +362,8 @@ export default function ChildDashboard() {
               </TouchableOpacity>
             ))}
             
-            {/* Add empty placeholders to fill the grid */}
-            {Array.from({ length: Math.max(0, (screenData.width > screenData.height ? 18 : 12) - customButtons.length) }).map((_, index) => (
-              <View
-                key={`placeholder-${index}`}
-                style={[getButtonStyle, styles.emptyButton]}
-              />
-            ))}
           </View>
+          )}
         </View>
 
       </ScrollView>
@@ -355,7 +374,35 @@ export default function ChildDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#EDF8F7',
+  },
+  headerShell: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D9ECEA',
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  eyebrow: {
+    color: '#176B87',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    fontFamily: Platform.OS === 'web' ? 'Trebuchet MS' : undefined,
+  },
+  headerTitle: {
+    color: '#17324D',
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'web' ? 'Trebuchet MS' : undefined,
   },
   scrollContainer: {
     flexGrow: 1,
@@ -416,7 +463,10 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   communicationContainer: {
-    marginBottom: 20,
+    flex: 1,
+    width: '100%',
+    maxWidth: 1440,
+    alignSelf: 'center',
   },
   sectionTitle: {
     fontSize: 20,
@@ -427,24 +477,27 @@ const styles = StyleSheet.create({
   buttonsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    gap: 10,
+    justifyContent: 'center',
+    gap: 12,
   },
   emoji: {
     fontSize: 30,
     marginBottom: 8,
   },
   buttonImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 0,
+    width: '72%',
+    aspectRatio: 1,
+    borderRadius: 12,
     marginBottom: 8,
+    resizeMode: 'cover',
   },
   communicationText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: 'black',
+    lineHeight: 20,
+    fontWeight: '800',
+    color: '#17324D',
     textAlign: 'center',
+    fontFamily: Platform.OS === 'web' ? 'Trebuchet MS' : undefined,
   },
   quickActionsContainer: {
     marginBottom: 20,
@@ -466,44 +519,49 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   topBar: {
-    backgroundColor: '#7FB3D3',
+    backgroundColor: '#EDF8F7',
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    marginBottom: 15,
-    borderRadius: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    alignItems: 'stretch',
+    padding: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#CFE8E6',
+    gap: 8,
   },
   sentenceContainer: {
     flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    marginRight: 10,
+    minWidth: 140,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    justifyContent: 'center',
   },
   sentenceField: {
-    padding: 12,
-    fontSize: 16,
-    minHeight: 50,
-    maxHeight: 100,
-    color: '#333',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 18,
+    lineHeight: 24,
+    minHeight: 54,
+    maxHeight: 96,
+    color: '#17324D',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Trebuchet MS' : undefined,
   },
   playButtonTop: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 12,
+    minHeight: 54,
+    minWidth: 112,
+    backgroundColor: '#176B87',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    gap: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 50,
-    height: 50,
   },
   playButtonTopText: {
-    fontSize: 14,
-    color: 'black',
-    fontWeight: 'bold',
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'web' ? 'Trebuchet MS' : undefined,
   },
   controlsContainer: {
     flexDirection: 'row',
@@ -512,11 +570,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   clearButton: {
-    backgroundColor: '#f44336',
-    paddingHorizontal: 25,
-    paddingVertical: 12,
-    borderRadius: 25,
-    minWidth: 100,
+    backgroundColor: '#FFF1F0',
+    width: 54,
+    minHeight: 54,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F2D0CD',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -527,22 +586,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   settingsButton: {
-    backgroundColor: '#6c757d',
-    paddingHorizontal: 25,
-    paddingVertical: 12,
-    borderRadius: 25,
-    minWidth: 100,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    gap: 8,
+    borderRadius: 12,
+    backgroundColor: '#E0F4F2',
     justifyContent: 'center',
     alignItems: 'center',
   },
   settingsButtonText: {
-    color: 'white',
-    fontSize: 18,
-    textAlign: 'center',
+    color: '#17324D',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Trebuchet MS' : undefined,
   },
-  emptyButton: {
-    backgroundColor: '#f8f9fa',
-    borderColor: '#e9ecef',
-    borderStyle: 'dashed',
+  emptyState: {
+    minHeight: 240,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#CFE8E6',
+  },
+  emptyIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E0F4F2',
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    color: '#17324D',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  emptyText: {
+    color: '#5C7285',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    maxWidth: 420,
   },
 });
